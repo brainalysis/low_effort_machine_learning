@@ -1,4 +1,4 @@
-?# Multicollinearity:
+# Multicollinearity:
 This has been an issue for some Machine Learning models, although few algorithms are not affected by multicollinearity, but at the least , reducing redundant features will make the model less expensive in terms of computational power.
 
 This function looks to reduce feature space based on correlation between features and at the same time , looking at the correlation between features and target variable
@@ -12,7 +12,7 @@ Although I found it useful , yet simply running this code may not be efficient a
 
 Also, this is supposed to work for regression and two class classification problems
 
-In the end , please let me know if there are any glitches, room for improvements (i am pretty sure that there are many ) etc, after all , we all learn from each other’s mistakes  :-)
+In the end , please let me know if there are any glitches, room for improvements (i am pretty sure that there are many ) etc, after all , we all learn from each otherâ€™s mistakes  :-)
 
 Thanks
 Fahad
