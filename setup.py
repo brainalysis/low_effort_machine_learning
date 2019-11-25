@@ -6,8 +6,8 @@ from setuptools import setup, find_packages
 # used say pandas or numpy , you dont need to put them here as they are already installed 
 
 setup(
-    name="preprocess",
-    version="0.0.3",
+    name="preprocess1",
+    version="0.0.4",
     author="Fahad Akbar",
     author_email="fahadakbar@gmail.com",
     description="A package to eliminate multicollinearity",
