@@ -7,7 +7,7 @@ requirements = ["ipython>=6"]
 
 setup(
     name="preprocess1",
-    version="0.0.9",
+    version="0.1.0",
     author="Fahad Akbar",
     author_email="fahadakbar@gmail.com",
     description="A package to eliminate multicollinearity",
