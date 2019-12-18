@@ -1,3 +1,7 @@
+import numpy as np
+import pandas as pd
+from sklearn.base import BaseEstimator , TransformerMixin
+
 class Fix_multicollinearity(BaseEstimator,TransformerMixin):
   """
           Fixes multicollinearity between predictor variables , also considering the correlation between target variable.
@@ -24,9 +28,7 @@ class Fix_multicollinearity(BaseEstimator,TransformerMixin):
             None
     '''
       
-    import numpy as np
-    import numpy as np
-    import pandas as pd
+    
     #global data1
     self.data1 = data.copy()
     # make an correlation db with abs correlation db
