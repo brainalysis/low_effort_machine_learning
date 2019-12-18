@@ -7,7 +7,7 @@ requirements = []
 
 setup(
     name="preprocess1",
-    version="0.1.1",
+    version="0.1.2",
     author="Fahad Akbar",
     author_email="fahadakbar@gmail.com",
     description="A package to eliminate multicollinearity",
