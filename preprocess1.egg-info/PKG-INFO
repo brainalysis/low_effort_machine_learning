@@ -1,6 +1,6 @@
 Metadata-Version: 1.0
 Name: preprocess1
-Version: 0.1.0
+Version: 0.1.1
 Summary: A package to eliminate multicollinearity
 Home-page: https://github.com/mfahadakbar
 Author: Fahad Akbar
