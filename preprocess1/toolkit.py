@@ -120,7 +120,7 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
     #     unique_cat = list(data[i].unique())
     #     data[i].replace(unique_cat,[0,1],inplace=True)
     
-    for time & dates
+    #for time & dates
     for i in data.drop(self.target,axis=1).columns:
       # we are going to check every first row of every column and see if it is a date
       match = datefinder.find_dates(data.loc[0,i])
