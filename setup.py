@@ -8,7 +8,7 @@ requirements = ["fastai","scikit-learn","datetime","datefinder"] # add plotly la
 
 setup(
     name="preprocess1",
-    version="0.1.5",
+    version="0.1.6",
     author="Fahad Akbar",
     author_email="fahadakbar@gmail.com",
     description="A package to eliminate multicollinearity",
