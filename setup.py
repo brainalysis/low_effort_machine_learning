@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-requirements = ["fastai","scikit-learn","datetime","datefinder"] # add plotly later on
+requirements = ["scikit-learn","datetime","datefinder"] # add plotly later on
 
 # this is where you mention dependencies for your package
 # only add libraries that are not by default installed by python , so if your package only
@@ -8,7 +8,7 @@ requirements = ["fastai","scikit-learn","datetime","datefinder"] # add plotly la
 
 setup(
     name="preprocess1",
-    version="0.1.6",
+    version="0.1.7",
     author="Fahad Akbar",
     author_email="fahadakbar@gmail.com",
     description="A package to eliminate multicollinearity",
