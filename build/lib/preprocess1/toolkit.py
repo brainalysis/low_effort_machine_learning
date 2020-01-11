@@ -497,15 +497,11 @@ class Dummify(BaseEstimator,TransformerMixin):
           -Wheather to get k-1 dummies out of K catagorical levels
   '''
 
-  def __init__(self,target,drop_first=False):
+  def __init__(self,target):
     self.target = target
-    self.drop_first = drop_first
-    if self.drop_first == True:
-      self.ohe_drop = 'first'
-    else:
-      self.ohe_drop = None
+    
     # creat ohe object 
-    self.ohe = OneHotEncoder(handle_unknown='ignore',drop=self.ohe_drop)
+    self.ohe = OneHotEncoder(handle_unknown='ignore')
   
   def fit(self,data,y=None):
     # will only do this if there are catagorical variables 
