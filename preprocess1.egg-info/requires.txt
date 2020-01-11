@@ -1,4 +1,3 @@
-fastai
 scikit-learn
 datetime
 datefinder
