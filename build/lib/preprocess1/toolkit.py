@@ -121,6 +121,7 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
     #     data[i].replace(unique_cat,[0,1],inplace=True)
     
     #for time & dates
+    self.drop_time = [] # for now we are deleting time columns
     for i in data.drop(self.target,axis=1).columns:
       # we are going to check every first row of every column and see if it is a date
       match = datefinder.find_dates(data.loc[0,i])
@@ -128,6 +129,7 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
         for m in match:
           if isinstance(m, datetime) == True:
             data[i] = pd.to_datetime(data[i])
+            self.drop_time.append(i)  # for now we are deleting time columns
       except:
         continue
 
@@ -175,11 +177,25 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
     # input()
     
     display(wg.Text(value="We identified following data types,if they are incorrect , enter ''quit'' , and provide correct types in the argument",layout =Layout(width='50%')))
-    display(pd.DataFrame(self.learent_dtypes, columns=['Feature_Type']))
-    response = input()
+    
+    dt_print_out = pd.DataFrame(self.learent_dtypes, columns=['Feature_Type'])
+    dt_print_out['feature_print'] = ""
+    for i in dt_print_out.index:
+      if dt_print_out.loc[i,'Feature_Type'] == 'object':
+        dt_print_out.loc[i,'feature_print'] = 'Catagorical'
+      elif dt_print_out.loc[i,'Feature_Type'] == 'float64':
+        dt_print_out.loc[i,'feature_print'] = 'Numerical'
+      elif dt_print_out.loc[i,'Feature_Type'] == 'datetime64[ns]':
+        dt_print_out.loc[i,'feature_print'] = 'Date'
 
-    if response in ['quit','Quit','exit','EXIT','q','Q','e','E']:
+    display(dt_print_out[['feature_print']])
+    self.response = input()
+
+    if self.response in ['quit','Quit','exit','EXIT','q','Q','e','E']:
       sys.exit()
+    
+    # drop time columns
+    data.drop(self.drop_time,axis=1,errors='ignore',inplace=True)
     
     return(data)
   
@@ -205,7 +221,8 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
     for i in data.columns: # we are taking all the columns in test , so we dot have to worry about droping target column
       data[i] = data[i].astype(self.learent_dtypes[self.learent_dtypes.index==i])
     
-
+    # drop time columns
+    data.drop(self.drop_time,axis=1,errors='ignore',inplace=True)
     return(data)
 
   # fit_transform
@@ -221,7 +238,10 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
       data[self.target]= data[self.target].replace(self.u,self.replacement)
       data[self.target] = data[self.target].astype('int64')
       self.replacement = pd.DataFrame(dict(target_variable=self.u,replaced_with=self.replacement))
+
     
+    # drop time columns
+    data.drop(self.drop_time,axis=1,errors='ignore',inplace=True)
     
     
     return(data)
@@ -421,69 +441,60 @@ class Surrogate_Imputer(BaseEstimator,TransformerMixin):
   def fit_transform(self,data,y=None):
     data= self.fit(data)
     return(self.transform(data))
-
- 
-
 # _______________________________________________________________________________________________________________________
-# _______________________________________________________________________________________________________________________
-# Time Feature Extraction
-class Make_Time_Features(BaseEstimator,TransformerMixin):
+# Scaling & Power Transform
+class Scaling_and_Power_transformation(BaseEstimator,TransformerMixin):
   '''
-    -Given a time feature , it extracts more features
-    - full list of features is:
-      ['Year','Month','Week','Day','Dayofweek','Dayofyear','Is_month_end','Is_month_start','Is_quarter_end','Is_quarter_start','Is_year_end','Is_year_start','Elapsed']
-    - all extracted features are defined as string / object
+    -Given a data set, applies Min Max, Standar Scaler or Power Transformation (yeo-johnson)
     -it is recommended to run Define_dataTypes first
+    - ignores target variable 
       Args: 
-        time_feature: string , name of the Date variable as datetime64[ns]
-        list_of_features: list of required features , default value ['Month','Dayofweek']
+        target: string , name of the target variable
+        function_to_apply: string , default 'ss' (standard scaler), all other {'mm','pt'} ( min max scaler and power transformer)
 
   '''
 
-  def __init__(self,time_feature=[],list_of_features=['Month','Dayofweek']):
-    self.time_feature = time_feature
-    self.list_of_features_o = list_of_features
+  def __init__(self,target,function_to_apply='mm'):
+    self.target = target
+    self.function_to_apply = function_to_apply
   
-  def fit(self,data,y=None): # nothing to learn,
-    return(None)
+  def fit(self,data,y=None):
+    self.numeric_features = data.drop(self.target,axis=1,errors='ignore').select_dtypes(include=["float64",'int64']).columns
+    if self.function_to_apply == 'ss':
+      self.scale_and_power = StandardScaler()
+      self.scale_and_power.fit(data[self.numeric_features])
+    elif  self.function_to_apply == 'mm':
+      self.scale_and_power = MinMaxScaler()
+      self.scale_and_power.fit(data[self.numeric_features])
+    else:
+      return(None)
+
   
-  def transform(self,data,y=None): # same learning for training and testing data set
-
-    # this should work on all the columns autodetected as time or name given as time
-    #list of already time identified columns
-    ph = list(data.select_dtypes(include='datetime64').columns)
-    # append it to the time feature argument
-    self.time_feature = self.time_feature + ph
-    # just make sure no colum appears double
-    self.time_feature  = list(set(self.time_feature))
-    # only do this if we have any date columns
-    if len(self.time_feature) > 0:
-      for t in self.time_feature:
-        self.list_of_features = [t+"_"+i for i in self.list_of_features_o]
-        data = add_datepart(data,t,prefix=t+"_")
-        #  now we need to only keep thoes columns that user requested  so we need to do following procedure
-        # we know following columns are generated by date part, save it as list
-        cols = ['Year','Month','Week','Day','Dayofweek','Dayofyear','Is_month_end','Is_month_start','Is_quarter_end','Is_quarter_start','Is_year_end','Is_year_start']
-        cols = [t+"_"+i for i in cols]
-        
-        for i in cols:
-          if i not in self.list_of_features:
-            data.drop(i,axis=1,inplace=True)
-
-        # we want  time to be a catagorical variable 
-        for i in self.list_of_features:
-          data[i]= data[i].astype(str)
-        # just get rid of Elapsed columns
-
-        data.drop(t+"_"+"Elapsed",axis=1,inplace=True)
-    
-    return(data)
+  def transform(self,data,y=None):
+    # if it is power transformation , then it has already been transformed
+    if self.function_to_apply == 'pt':
+      self.data_t = pd.DataFrame(power_transform(data[self.numeric_features],method='yeo-johnson'))
+      self.data_t.index = data.index
+      self.data_t.columns = self.numeric_features
+      # update columns in the original data
+      for i in self.numeric_features:
+        data[i]= self.data_t[i]
+      return(data)
+    else:
+      self.data_t = pd.DataFrame(self.scale_and_power.transform(data[self.numeric_features]))
+      # we need to set the same index as original data
+      self.data_t.index = data.index
+      self.data_t.columns = self.numeric_features
+      for i in self.numeric_features:
+        data[i]= self.data_t[i]
+      return(data)
   
   def fit_transform(self,data,y=None):
-    #self.fit(data)
+    self.fit(data)
     return(self.transform(data))
 
 # _______________________________________________________________________________________________________________________
+
 # make dummy variables
 class Dummify(BaseEstimator,TransformerMixin):
   '''
@@ -795,9 +806,12 @@ def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =No
     imputer = Simple_Imputer(numeric_strategy=numeric_imputation_strategy, target_variable= target_variable,catagorical_strategy=catagorical_imputation_strategy)
   else:
     imputer = Surrogate_Imputer(numeric_strategy=numeric_imputation_strategy,catagorical_strategy=catagorical_imputation_strategy,target_variable=target_variable)
+
+  scaling = Scaling_and_Power_transformation(target=target_variable)
+  Power_transform = Scaling_and_Power_transformation(target=target_variable,function_to_apply='pt')
   
   # for Time Variables
-  feature_time = Make_Time_Features(time_feature=time_features,list_of_features=time_features_extracted)
+  #feature_time = Make_Time_Features(time_feature=time_features,list_of_features=time_features_extracted)
   dummy = Dummify(target_variable)
   
 
@@ -808,7 +822,9 @@ def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =No
   pipe = Pipeline([
                  ('dtypes',dtypes),
                  ('imputer',imputer),
-                 ('feature_time',feature_time),
+                #  ('feature_time',feature_time),
+                 ('scaling',scaling),
+                 ('Power_transform',Power_transform),
                  ('dummy',dummy),
                  ('fixm',fixm)
                  ])
