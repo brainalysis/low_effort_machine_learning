@@ -493,8 +493,6 @@ class Dummify(BaseEstimator,TransformerMixin):
 
       Args: 
         target: string , name of the target variable
-        drop_first: boolen , default False. 
-          -Wheather to get k-1 dummies out of K catagorical levels
   '''
 
   def __init__(self,target):
@@ -511,7 +509,7 @@ class Dummify(BaseEstimator,TransformerMixin):
       self.data_nonc = data.drop(self.target,axis=1,errors='ignore').select_dtypes(exclude=('object'))
       self.target_column =  data[[self.target]]
       # plus we will only take object data types
-      self.data_columns  = pd.get_dummies(data.drop(self.target,axis=1,errors='ignore').select_dtypes(include=('object')),drop_first=self.drop_first).columns
+      self.data_columns  = pd.get_dummies(data.drop(self.target,axis=1,errors='ignore').select_dtypes(include=('object'))).columns
       # now fit the trainin column
       self.ohe.fit(data.drop(self.target,axis=1,errors='ignore').select_dtypes(include=('object')))
     return(None)
