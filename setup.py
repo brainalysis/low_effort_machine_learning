@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-requirements = ["scikit-learn","datetime","datefinder","calendar"] # add plotly later on
+requirements = ["scikit-learn","datetime","datefinder"] # add plotly later on
 
 # this is where you mention dependencies for your package
 # only add libraries that are not by default installed by python , so if your package only
@@ -8,7 +8,7 @@ requirements = ["scikit-learn","datetime","datefinder","calendar"] # add plotly 
 
 setup(
     name="preprocess1",
-    version="0.1.9",
+    version="0.1.10",
     author="Fahad Akbar",
     author_email="fahadakbar@gmail.com",
     description="A package to eliminate multicollinearity",
