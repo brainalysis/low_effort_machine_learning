@@ -33,8 +33,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.model_selection import ParameterGrid
 from sklearn import metrics
 import datefinder
-import calendar
 from datetime import datetime
+import calendar
 import plotly.express as px
 from matplotlib import pyplot as plt
 import seaborn as sns
@@ -96,6 +96,21 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
         data[i] = data[i].astype('int64')
       except:
         None
+    
+    # wiith csv , if we have any null in  a colum that was int , panda will read it as float.
+    # so first we need to convert any such floats that have NaN and unique values are lower than 20
+    for i in data.drop(self.target,axis=1).columns:
+      if data[i].dtypes == 'float64':
+        # count how many Nas are there
+        na_count = sum(data[i].isna())
+        # count how many digits are there that have decimiles
+        count_float = np.nansum([ False if r.is_integer() else True for r in data[i]])
+        # total decimiels digits
+        count_float = count_float - na_count # reducing it because we know NaN is counted as a float digit
+        # now if there isnt any float digit , & unique levales are less than 20 and there are Na's then convert it to object
+        if ( (count_float == 0) & (len(data[i].unique())<=20) & (na_count>0) ):
+          data[i] = data[i].apply(str)
+        
 
     # should really be an absolute number say 20
     # length = len(data.iloc[:,0])
@@ -192,6 +207,11 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
         dt_print_out.loc[i,'feature_print'] = 'Numerical'
       elif dt_print_out.loc[i,'Feature_Type'] == 'datetime64[ns]':
         dt_print_out.loc[i,'feature_print'] = 'Date'
+
+    # for ID column:
+    for i in dt_print_out.index:
+      if i in self.id_columns:
+        dt_print_out.loc[i,'feature_print'] = 'ID Column'
 
     display(dt_print_out[['feature_print']])
     self.response = input()
