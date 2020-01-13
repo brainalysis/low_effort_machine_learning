@@ -1,4 +1,3 @@
 scikit-learn
 datetime
 datefinder
-calendar
