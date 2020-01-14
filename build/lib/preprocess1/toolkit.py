@@ -1,45 +1,23 @@
 import pandas as pd
 import numpy as np
 from scipy import stats # for mode imputation
-from sklearn.model_selection import StratifiedShuffleSplit
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import IsolationForest # for outlier detection
 import ipywidgets as wg 
 from IPython.display import display
 from ipywidgets import Layout
-from sklearn import preprocessing as pre
 from scipy import stats
-from scipy import stats
-from sklearn.decomposition import PCA
-from sklearn.decomposition import KernelPCA
-from sklearn.cross_decomposition import PLSRegression
 from sklearn.base import BaseEstimator , TransformerMixin
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.preprocessing import power_transform
-from sklearn.decomposition import PCA
-from sklearn.decomposition import KernelPCA
-from sklearn.preprocessing import KBinsDiscretizer
-from sklearn.cross_decomposition import PLSRegression
 from sklearn.preprocessing import OneHotEncoder
-from sklearn import cluster
-# from pyod.models.knn import KNN
-# from pyod.models.iforest import IForest
-# from pyod.models.pca import PCA as PCA_od
-# from pyod.models.hbos import HBOS
 import sys 
 from sklearn.pipeline import Pipeline
-from sklearn.model_selection import ParameterGrid
 from sklearn import metrics
 import datefinder
 from datetime import datetime
 import calendar
-import plotly.express as px
-from matplotlib import pyplot as plt
-import seaborn as sns
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.max_rows', 500)
-sns.set()
 
 #ignore warnings
 import warnings
@@ -95,7 +73,24 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
         data[i] = data[i].astype('int64')
       except:
         None
-    
+
+    # some times we have id column in the data set, we will try to find it and then  will drop it if found
+    len_samples = len(data)
+    self.id_columns = []
+    for i in data.drop(self.target,axis=1).columns:
+      if data[i].dtype in ['int64','float64']:
+        if sum(data[i].isna()) == 0: 
+          if len(data[i].unique()) == len_samples:
+            min_number = min(data[i])
+            max_number = max(data[i])
+            arr = np.arange(min_number,max_number+1,1)
+            try:
+              all_match = sum(data[i] == arr)
+              if all_match == len_samples:
+                self.id_columns.append(i) 
+            except:
+              None                         
+        
     # wiith csv , if we have any null in  a colum that was int , panda will read it as float.
     # so first we need to convert any such floats that have NaN and unique values are lower than 20
     for i in data.drop(self.target,axis=1).columns:
@@ -181,12 +176,7 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
     data.dropna(axis=1, how='all', inplace=True)
     # remove the row if target column has NA
     data = data[~data[self.target].isnull()]
-    # some times we have id column in the data set, we will try to find it and then  will drop it if found
-    len_samples = len(data)
-    self.id_columns = []
-    for i in data.drop(self.target,axis=1).columns:
-      if len(data[i].unique()) == len_samples:
-        self.id_columns.append(i)
+            
 
     self.training_columns = data.drop(self.target,axis=1).columns
 
