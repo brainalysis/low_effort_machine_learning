@@ -32,7 +32,7 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
       remove columns and rows where all the records are null
   '''
 
-  def __init__(self,target,ml_usecase,categorical_features=[],numerical_features=[],time_features=[]): # nothing to define
+  def __init__(self,target,ml_usecase,categorical_features=[],numerical_features=[],time_features=[],features_todrop=[]): # nothing to define
     '''
     User to define the target (y) variable
       args:
@@ -48,6 +48,7 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
     self.categorical_features =categorical_features
     self.numerical_features = numerical_features
     self.time_features =time_features
+    self.features_todrop = features_todrop
   
   def fit(self,data,y=None): # learning data types of all the columns
     '''
@@ -243,6 +244,10 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
 
     # drop id columns
     data.drop(self.id_columns,axis=1,errors='ignore',inplace=True)
+
+     # drop custome columns
+    data.drop(self.features_todrop,axis=1,errors='ignore',inplace=True)
+    
     return(data)
 
   # fit_transform
@@ -265,6 +270,9 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
 
     # drop id columns
     data.drop(self.id_columns,axis=1,errors='ignore',inplace=True)
+
+    # drop custome columns
+    data.drop(self.features_todrop,axis=1,errors='ignore',inplace=True)
     
     
     return(data)
@@ -700,7 +708,7 @@ class Empty(BaseEstimator,TransformerMixin):
 
 # ______________________________________________________________________________________________________________________________________________________
 # preprocess_all_in_one
-def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =None,categorical_features=[],numerical_features=[],time_features=[],time_features_extracted=['Month','Dayofweek'],
+def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =None,categorical_features=[],numerical_features=[],time_features=[],features_todrop=[],time_features_extracted=['Month','Dayofweek'],
                                imputation_type = "simple imputer" ,numeric_imputation_strategy='mean',categorical_imputation_strategy='not_available'
                                ):
   
@@ -724,7 +732,7 @@ def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =No
   
   
   global dtypes 
-  dtypes = DataTypes_Auto_infer(target=target_variable,ml_usecase=ml_usecase,categorical_features=categorical_features,numerical_features=numerical_features,time_features=time_features)
+  dtypes = DataTypes_Auto_infer(target=target_variable,ml_usecase=ml_usecase,categorical_features=categorical_features,numerical_features=numerical_features,time_features=time_features,features_todrop=features_todrop)
 
   
   # for imputation
