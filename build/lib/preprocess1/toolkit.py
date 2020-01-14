@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 from scipy import stats # for mode imputation
-from fastai.tabular import add_datepart # fot Time FE
 from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import IsolationForest # for outlier detection
