@@ -8,7 +8,7 @@ requirements = ["scikit-learn","datetime","datefinder"] # add plotly later on
 
 setup(
     name="preprocess1",
-    version="0.1.14",
+    version="0.1.15",
     author="Fahad Akbar",
     author_email="fahadakbar@gmail.com",
     description="A package to eliminate multicollinearity",
