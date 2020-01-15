@@ -16,6 +16,7 @@ from sklearn import metrics
 import datefinder
 from datetime import datetime
 import calendar
+from sklearn.preprocessing import LabelEncoder
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.max_rows', 500)
 
@@ -90,7 +91,9 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
               if all_match == len_samples:
                 self.id_columns.append(i) 
             except:
-              None                         
+              None 
+    
+    data_len = len(data)                        
         
     # wiith csv , if we have any null in  a colum that was int , panda will read it as float.
     # so first we need to convert any such floats that have NaN and unique values are lower than 20
@@ -103,8 +106,8 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
         # total decimiels digits
         count_float = count_float - na_count # reducing it because we know NaN is counted as a float digit
         # now if there isnt any float digit , & unique levales are less than 20 and there are Na's then convert it to object
-        if ( (count_float == 0) & (len(data[i].unique())<=20) & (na_count>0) ):
-          data[i] = data[i].apply(str)
+        if ( (count_float == 0) & (len(data[i].unique())/data_len <=.20) & (na_count>0) ):
+          data[i] = data[i].astype('object')
         
 
     # should really be an absolute number say 20
@@ -123,8 +126,8 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
     # if column is int and unique counts are more than two, then: (exclude target)
     for i in data.drop(self.target,axis=1).columns:
       if data[i].dtypes == 'int64': #((data[i].dtypes == 'int64') & (len(data[i].unique())>2))
-        if len(data[i].unique())<=20: #hard coded
-          data[i]= data[i].apply(str)
+        if len(data[i].unique())/data_len <=.20: #hard coded
+          data[i]= data[i].astype('object')
         else:
           data[i]= data[i].astype('float64')
 
@@ -133,7 +136,7 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
     # # make it object
     for i in data.columns:
       if ((data[i].dtypes == 'float64') & (len(data[i].unique())==2)):
-        data[i]= data[i].apply(str)
+        data[i]= data[i].astype('float64')
     
     
     #for time & dates
@@ -152,7 +155,7 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
     # now in case we were given any specific columns dtypes in advance , we will over ride theos 
     if len(self.categorical_features) > 0:
       for i in self.categorical_features:
-        data[i]=data[i].apply(str)
+        data[i]=data[i].astype('object')
     
     if len(self.numerical_features) > 0:
       for i in self.numerical_features:
@@ -197,6 +200,8 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
         dt_print_out.loc[i,'feature_print'] = 'Numerical'
       elif dt_print_out.loc[i,'Feature_Type'] == 'datetime64[ns]':
         dt_print_out.loc[i,'feature_print'] = 'Date'
+      elif dt_print_out.loc[i,'Feature_Type'] == 'int64':
+        dt_print_out.loc[i,'feature_print'] = 'Labels'  
 
     # for ID column:
     for i in dt_print_out.index:
@@ -227,10 +232,16 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
     #very first thing we need to so is to check if the training and test data hace same columns
     #exception checking   
     import sys
+
+    for i in self.final_training_columns:  
+      if i not in data.columns:
+        sys.exit('(Type Error): test data does not have column ' + str(i) + " which was used for training")
+
+    ## we only need to take test columns that we used in ttaining (test in production may have a lot more columns)
+    data = data[self.final_training_columns]
+
     
-    #checking train size parameter
-    if sum(self.training_columns.sort_values() !=data.columns.sort_values())>0:
-        sys.exit('(Type Error): train and test dataset does not have same columns.')
+    
 
     # only take columns that training has
 
@@ -258,11 +269,21 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
     # additionally we just need to treat the target variable
     # for ml use ase
     if ((self.ml_usecase == 'classification') &  (data[self.target].dtype=='object')):
-      self.u = list(pd.unique(data[self.target]))
-      self.replacement = np.arange(0,len(self.u))
-      data[self.target]= data[self.target].replace(self.u,self.replacement)
-      data[self.target] = data[self.target].astype('int64')
-      self.replacement = pd.DataFrame(dict(target_variable=self.u,replaced_with=self.replacement))
+      le = LabelEncoder()
+      data[self.target] = le.fit_transform(np.array(data[self.target]))
+
+      # now get the replacement dict
+      rev= le.inverse_transform(range(0,len(le.classes_)))
+      rep = np.array(range(0,len(le.classes_)))
+      self.replacement={}
+      for i,k in zip(rev,rep):
+        self.replacement[i] = k
+
+      # self.u = list(pd.unique(data[self.target]))
+      # self.replacement = np.arange(0,len(self.u))
+      # data[self.target]= data[self.target].replace(self.u,self.replacement)
+      # data[self.target] = data[self.target].astype('int64')
+      # self.replacement = pd.DataFrame(dict(target_variable=self.u,replaced_with=self.replacement))
 
     
     # drop time columns
@@ -274,6 +295,9 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
     # drop custome columns
     data.drop(self.features_todrop,axis=1,errors='ignore',inplace=True)
     
+    # finally save a list of columns that we would need from test data set
+    self.final_training_columns = data.drop(self.target,axis=1).columns
+
     
     return(data)
 # _______________________________________________________________________________________________________________________
@@ -335,11 +359,11 @@ class Simple_Imputer(BaseEstimator,TransformerMixin):
       for i in (self.categorical_stats.columns):
         #data[i].fillna(self.categorical_stats.loc[0,i],inplace=True)
         data[i] = data[i].fillna(self.categorical_stats.loc[0,i])
-        data[i] = data[i].apply(str)
+        data[i] = data[i].astype('object')    
     else: # this means replace na with "not_available"
       for i in (self.categorical_columns):
         data[i].fillna("not_available",inplace=True)
-        data[i] = data[i].apply(str)
+        data[i] = data[i].astype('object')
     # for time
     for i in (self.time_stats.columns):
         data[i].fillna(self.time_stats.loc[0,i],inplace=True)
@@ -400,7 +424,7 @@ class Surrogate_Imputer(BaseEstimator,TransformerMixin):
       # also need to learn if any columns had NA in training, but this is only valid if strategy is "most frequent"
       self.categorical_na = pd.DataFrame(columns=self.categorical_columns)
       for i in self.categorical_columns:
-        if data[i].isna().any() == True:
+        if sum(data[i].isna()) > 0:
           self.categorical_na.loc[0,i] = True
         else:
           self.categorical_na.loc[0,i] = False        
@@ -436,7 +460,7 @@ class Surrogate_Imputer(BaseEstimator,TransformerMixin):
       if self.numeric_na.loc[0,i] == True:
         data[i+"_surrogate"]= array
         # make it string
-        data[i+"_surrogate"]= data[i+"_surrogate"].apply(str)
+        data[i+"_surrogate"]= data[i+"_surrogate"].astype('object')
 
     
     # for categorical columns
@@ -445,16 +469,16 @@ class Surrogate_Imputer(BaseEstimator,TransformerMixin):
         #data[i].fillna(self.categorical_stats.loc[0,i],inplace=True)
         array = data[i].isna()
         data[i] = data[i].fillna(self.categorical_stats.loc[0,i])
-        data[i] = data[i].apply(str)
+        data[i] = data[i].astype('object')
         # make surrogate column
         if self.categorical_na.loc[0,i] == True:
           data[i+"_surrogate"]= array
           # make it string
-          data[i+"_surrogate"]= data[i+"_surrogate"].apply(str)
+          data[i+"_surrogate"]= data[i+"_surrogate"].astype('object')
     else: # this means replace na with "not_available"
       for i in (self.categorical_columns):
         data[i].fillna("not_available",inplace=True)
-        data[i] = data[i].apply(str)
+        data[i] = data[i].astype('object')
         # no need to make surrogate since not_available is itself a new colum
     
     # for time
@@ -465,7 +489,7 @@ class Surrogate_Imputer(BaseEstimator,TransformerMixin):
       if self.time_na.loc[0,i] == True:
         data[i+"_surrogate"]= array
         # make it string
-        data[i+"_surrogate"]= data[i+"_surrogate"].apply(str)
+        data[i+"_surrogate"]= data[i+"_surrogate"].astype('object')
     
     return(data)
   
@@ -556,28 +580,28 @@ class Make_Time_Features(BaseEstimator,TransformerMixin):
       # make month column if month is choosen
       if 'month' in self.list_of_features_o:
         data[i+"_month"] = [datetime.date(r).month for r in data[i]]
-        data[i+"_month"] = data[i+"_month"].apply(str)
+        data[i+"_month"] = data[i+"_month"].astype('object')
 
       # make weekday column if weekday is choosen ( 0 for monday 6 for sunday)
       if 'weekday' in self.list_of_features_o:
         data[i+"_weekday"] = [datetime.weekday(r) for r in data[i]]
-        data[i+"_weekday"] = data[i+"_weekday"].apply(str)
+        data[i+"_weekday"] = data[i+"_weekday"].astype('object')
       
       # make Is_month_end column  choosen
       if 'is_month_end' in self.list_of_features_o:
         data[i+"_is_month_end"] = [ 1 if calendar.monthrange(datetime.date(r).year,datetime.date(r).month)[1] == datetime.date(r).day  else 0 for r in data[i] ]
-        data[i+"_is_month_end"] = data[i+"_is_month_end"].apply(str)
+        data[i+"_is_month_end"] = data[i+"_is_month_end"].astype('object')
         
       
       # make Is_month_start column if choosen
       if 'is_month_start' in self.list_of_features_o:
         data[i+"_is_month_start"] = [ 1 if datetime.date(r).day == 1 else 0 for r in data[i] ]
-        data[i+"_is_month_start"] = data[i+"_is_month_start"].apply(str)
+        data[i+"_is_month_start"] = data[i+"_is_month_start"].astype('object')
       
       # make hour column if choosen
       if 'hour' in self.list_of_features_o:
         data[i+"_hour"] = [ datetime.time(r).hour for r in data[i] ]
-        data[i+"_hour"] = data[i+"_hour"].apply(str)
+        data[i+"_hour"] = data[i+"_hour"].astype('object')
     
     # we dont need time columns any more 
     data.drop(self.time_feature,axis=1,inplace=True)
@@ -594,28 +618,28 @@ class Make_Time_Features(BaseEstimator,TransformerMixin):
       # make month column if month is choosen
       if 'month' in self.list_of_features_o:
         data[i+"_month"] = [datetime.date(r).month for r in data[i]]
-        data[i+"_month"] = data[i+"_month"].apply(str)
+        data[i+"_month"] = data[i+"_month"].astype('object')
 
       # make weekday column if weekday is choosen ( 0 for monday 6 for sunday)
       if 'weekday' in self.list_of_features_o:
         data[i+"_weekday"] = [datetime.weekday(r) for r in data[i]]
-        data[i+"_weekday"] = data[i+"_weekday"].apply(str)
+        data[i+"_weekday"] = data[i+"_weekday"].astype('object')
       
       # make Is_month_end column  choosen
       if 'is_month_end' in self.list_of_features_o:
         data[i+"_is_month_end"] = [ 1 if calendar.monthrange(datetime.date(r).year,datetime.date(r).month)[1] == datetime.date(r).day  else 0 for r in data[i] ]
-        data[i+"_is_month_end"] = data[i+"_is_month_end"].apply(str)
+        data[i+"_is_month_end"] = data[i+"_is_month_end"].astype('object')
         
       
       # make Is_month_start column if choosen
       if 'is_month_start' in self.list_of_features_o:
         data[i+"_is_month_start"] = [ 1 if datetime.date(r).day == 1 else 0 for r in data[i] ]
-        data[i+"_is_month_start"] = data[i+"_is_month_start"].apply(str)
+        data[i+"_is_month_start"] = data[i+"_is_month_start"].astype('object')
       
       # make hour column if choosen
       if 'hour' in self.list_of_features_o:
         data[i+"_hour"] = [ datetime.time(r).hour for r in data[i] ]
-        data[i+"_hour"] = data[i+"_hour"].apply(str)
+        data[i+"_hour"] = data[i+"_hour"].astype('object')
     
     # we dont need time columns any more 
     data.drop(self.time_feature,axis=1,inplace=True)
@@ -721,7 +745,7 @@ def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =No
 
   # WE NEED TO AUTO INFER the ml use case
   c1 = train_data[target_variable].dtype == 'int64'
-  c2 = len(train_data[target_variable].unique()) <= 20
+  c2 = len(train_data[target_variable].unique())/len(data) <= .20
   c3 = train_data[target_variable].dtype == 'object'
   
   if ml_usecase is None:
