@@ -745,7 +745,7 @@ def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =No
 
   # WE NEED TO AUTO INFER the ml use case
   c1 = train_data[target_variable].dtype == 'int64'
-  c2 = len(train_data[target_variable].unique())/len(data) <= .20
+  c2 = len(train_data[target_variable].unique())/len(train_data) <= .20
   c3 = train_data[target_variable].dtype == 'object'
   
   if ml_usecase is None:
