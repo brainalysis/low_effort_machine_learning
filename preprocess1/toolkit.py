@@ -242,10 +242,7 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
 
     
     
-
-    # only take columns that training has
-
-    data = data[self.training_columns] 
+ 
     # just keep picking the data and keep applying to the test data set (be mindful of target variable)
     for i in data.columns: # we are taking all the columns in test , so we dot have to worry about droping target column
       data[i] = data[i].astype(self.learent_dtypes[self.learent_dtypes.index==i])
