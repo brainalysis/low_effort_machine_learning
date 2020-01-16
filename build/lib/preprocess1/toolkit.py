@@ -107,7 +107,7 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
         count_float = count_float - na_count # reducing it because we know NaN is counted as a float digit
         # now if there isnt any float digit , & unique levales are less than 20 and there are Na's then convert it to object
         if ( (count_float == 0) & (len(data[i].unique())/data_len <=.20) & (na_count>0) ):
-          data[i] = data[i].astype('object')
+          data[i] = data[i].apply(str)
         
 
     # should really be an absolute number say 20
