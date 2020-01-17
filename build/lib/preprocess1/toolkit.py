@@ -8,7 +8,7 @@ from scipy import stats
 from sklearn.base import BaseEstimator , TransformerMixin
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.preprocessing import power_transform
+from sklearn.preprocessing import PowerTransformer
 from sklearn.preprocessing import OneHotEncoder
 import sys 
 from sklearn.pipeline import Pipeline
@@ -518,6 +518,11 @@ class Scaling_and_Power_transformation(BaseEstimator,TransformerMixin):
       elif  self.function_to_apply == 'mm':
         self.scale_and_power = MinMaxScaler()
         self.scale_and_power.fit(data[self.numeric_features])
+      elif  self.function_to_apply == 'pt':
+        self.scale_and_power = PowerTransformer(method='yeo-johnson',standardize=False)
+        self.scale_and_power.fit(data[self.numeric_features])
+      
+
       else:
         return(None)
     else:
@@ -527,26 +532,17 @@ class Scaling_and_Power_transformation(BaseEstimator,TransformerMixin):
   def transform(self,data,y=None):
     
     if len(self.numeric_features) > 0:
-      # if it is power transformation , then it has already been transformed
-      if self.function_to_apply == 'pt':
-        self.data_t = pd.DataFrame(power_transform(data[self.numeric_features],method='yeo-johnson'))
-        self.data_t.index = data.index
-        self.data_t.columns = self.numeric_features
-        # update columns in the original data
-        for i in self.numeric_features:
-          data[i]= self.data_t[i]
-        return(data)
-      else:
-        self.data_t = pd.DataFrame(self.scale_and_power.transform(data[self.numeric_features]))
-        # we need to set the same index as original data
-        self.data_t.index = data.index
-        self.data_t.columns = self.numeric_features
-        for i in self.numeric_features:
-          data[i]= self.data_t[i]
-        return(data)
+      self.data_t = pd.DataFrame(self.scale_and_power.transform(data[self.numeric_features]))
+      # we need to set the same index as original data
+      self.data_t.index = data.index
+      self.data_t.columns = self.numeric_features
+      for i in self.numeric_features:
+        data[i]= self.data_t[i]
+      return(data)
+    
     else:
       return(data) 
-         
+
   def fit_transform(self,data,y=None):
     self.fit(data)
     return(self.transform(data))
@@ -769,9 +765,9 @@ def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =No
   else:
     imputer = Surrogate_Imputer(numeric_strategy=numeric_imputation_strategy,categorical_strategy=categorical_imputation_strategy,target_variable=target_variable)
 
-  global scaling ,Power_transform
-  scaling = Scaling_and_Power_transformation(target=target_variable)
-  Power_transform = Scaling_and_Power_transformation(target=target_variable,function_to_apply='pt')
+  global scaling ,P_transform
+  scaling = Scaling_and_Power_transformation(target=target_variable,)
+  P_transform = Scaling_and_Power_transformation(target=target_variable,function_to_apply='pt')
   
   # for Time Variables
   feature_time = Make_Time_Features()
@@ -787,7 +783,7 @@ def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =No
                  ('imputer',imputer),
                  ('feature_time',feature_time),
                  ('scaling',scaling),
-                 ('Power_transform',Power_transform),
+                 ('P_transform',P_transform),
                  ('dummy',dummy),
                  ])
   
