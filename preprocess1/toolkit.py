@@ -107,7 +107,7 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
         count_float = count_float - na_count # reducing it because we know NaN is counted as a float digit
         # now if there isnt any float digit , & unique levales are less than 20 and there are Na's then convert it to object
         if ( (count_float == 0) & (len(data[i].unique())/data_len <=.20) & (na_count>0) ):
-          data[i] = data[i].apply('str')
+          data[i] = data[i].astype('object')
         
 
     # should really be an absolute number say 20
@@ -167,7 +167,7 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
 
     # table of learent types
     self.learent_dtypes = data.dtypes
-    self.training_columns = data.drop(self.target,axis=1).columns
+    #self.training_columns = data.drop(self.target,axis=1).columns
 
     # lets remove duplicates
     # remove duplicate columns (columns with same values)
@@ -182,7 +182,7 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
     data = data[~data[self.target].isnull()]
             
 
-    self.training_columns = data.drop(self.target,axis=1).columns
+    #self.training_columns = data.drop(self.target,axis=1).columns
 
     # since due to transpose , all data types have changed, lets change the dtypes to original
     for i in data.columns: # we are taking all the columns in test , so we dot have to worry about droping target column
@@ -509,36 +509,44 @@ class Scaling_and_Power_transformation(BaseEstimator,TransformerMixin):
     self.function_to_apply = function_to_apply
   
   def fit(self,data,y=None):
+    # we only want to apply if there are numeric columns
     self.numeric_features = data.drop(self.target,axis=1,errors='ignore').select_dtypes(include=["float64",'int64']).columns
-    if self.function_to_apply == 'ss':
-      self.scale_and_power = StandardScaler()
-      self.scale_and_power.fit(data[self.numeric_features])
-    elif  self.function_to_apply == 'mm':
-      self.scale_and_power = MinMaxScaler()
-      self.scale_and_power.fit(data[self.numeric_features])
+    if len(self.numeric_features) > 0:
+      if self.function_to_apply == 'ss':
+        self.scale_and_power = StandardScaler()
+        self.scale_and_power.fit(data[self.numeric_features])
+      elif  self.function_to_apply == 'mm':
+        self.scale_and_power = MinMaxScaler()
+        self.scale_and_power.fit(data[self.numeric_features])
+      else:
+        return(None)
     else:
       return(None)
 
   
   def transform(self,data,y=None):
-    # if it is power transformation , then it has already been transformed
-    if self.function_to_apply == 'pt':
-      self.data_t = pd.DataFrame(power_transform(data[self.numeric_features],method='yeo-johnson'))
-      self.data_t.index = data.index
-      self.data_t.columns = self.numeric_features
-      # update columns in the original data
-      for i in self.numeric_features:
-        data[i]= self.data_t[i]
-      return(data)
+    
+    if len(self.numeric_features) > 0:
+      # if it is power transformation , then it has already been transformed
+      if self.function_to_apply == 'pt':
+        self.data_t = pd.DataFrame(power_transform(data[self.numeric_features],method='yeo-johnson'))
+        self.data_t.index = data.index
+        self.data_t.columns = self.numeric_features
+        # update columns in the original data
+        for i in self.numeric_features:
+          data[i]= self.data_t[i]
+        return(data)
+      else:
+        self.data_t = pd.DataFrame(self.scale_and_power.transform(data[self.numeric_features]))
+        # we need to set the same index as original data
+        self.data_t.index = data.index
+        self.data_t.columns = self.numeric_features
+        for i in self.numeric_features:
+          data[i]= self.data_t[i]
+        return(data)
     else:
-      self.data_t = pd.DataFrame(self.scale_and_power.transform(data[self.numeric_features]))
-      # we need to set the same index as original data
-      self.data_t.index = data.index
-      self.data_t.columns = self.numeric_features
-      for i in self.numeric_features:
-        data[i]= self.data_t[i]
-      return(data)
-  
+      return(data) 
+         
   def fit_transform(self,data,y=None):
     self.fit(data)
     return(self.transform(data))
@@ -740,7 +748,7 @@ def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =No
 
   # WE NEED TO AUTO INFER the ml use case
   c1 = train_data[target_variable].dtype == 'int64'
-  c2 = len(train_data[target_variable].unique())/len(data) <= .20
+  c2 = len(train_data[target_variable].unique())/len(train_data) <= .20
   c3 = train_data[target_variable].dtype == 'object'
   
   if ml_usecase is None:
