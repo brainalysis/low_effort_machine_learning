@@ -51,13 +51,14 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
     self.time_features =time_features
     self.features_todrop = features_todrop
   
-  def fit(self,data,y=None): # learning data types of all the columns
+  def fit(self,dataset,y=None): # learning data types of all the columns
     '''
     Args: 
       data: accepts a pandas data frame
     Returns:
       Panda Data Frame
     '''
+    data = dataset.copy()
     # we will take float as numberic, object as categorical from the begning
     # fir int64, we will check to see what is the proportion of unique counts to the total lenght of the data
     # if proportion is lower, then it is probabaly categorical 
@@ -68,7 +69,10 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
     # 50-250 samples , th is 4.8%
     # 250-500 samples, th is 2.4%
     # 500 and above 2% or belwo
-
+   
+    # if there are inf or -inf then replace them with NaN
+    data.replace([np.inf,-np.inf],np.NaN,inplace=True)
+   
     # we canc check if somehow everything is object, we can try converting them in float
     for i in data.select_dtypes(include=['object']).columns:
       try:
@@ -106,7 +110,7 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
         # total decimiels digits
         count_float = count_float - na_count # reducing it because we know NaN is counted as a float digit
         # now if there isnt any float digit , & unique levales are less than 20 and there are Na's then convert it to object
-        if ( (count_float == 0) & (len(data[i].unique())/data_len <=.20) & (na_count>0) ):
+        if ( (count_float == 0) & (len(data[i].unique()) <=20) & (na_count>0) ):
           data[i] = data[i].astype('object')
         
 
@@ -126,7 +130,7 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
     # if column is int and unique counts are more than two, then: (exclude target)
     for i in data.drop(self.target,axis=1).columns:
       if data[i].dtypes == 'int64': #((data[i].dtypes == 'int64') & (len(data[i].unique())>2))
-        if len(data[i].unique())/data_len <=.20: #hard coded
+        if len(data[i].unique()) <=20: #hard coded
           data[i]= data[i].apply(str)
         else:
           data[i]= data[i].astype('float64')
@@ -189,30 +193,34 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
       data[i] = data[i].astype(self.learent_dtypes[self.learent_dtypes.index==i])
     
 
-    display(wg.Text(value="We identified following data types,if they are incorrect , enter ''quit'' , and provide correct types in the argument",layout =Layout(width='100%')))
+    display(wg.Text(value="Following data types have been inferred automatically, if they are correct press enter to continue or type 'quit' otherwise.",layout =Layout(width='100%')))
     
     dt_print_out = pd.DataFrame(self.learent_dtypes, columns=['Feature_Type'])
-    dt_print_out['feature_print'] = ""
+    dt_print_out['Data_Type'] = ""
+    
     for i in dt_print_out.index:
-      if dt_print_out.loc[i,'Feature_Type'] == 'object':
-        dt_print_out.loc[i,'feature_print'] = 'Categorical'
-      elif dt_print_out.loc[i,'Feature_Type'] == 'float64':
-        dt_print_out.loc[i,'feature_print'] = 'Numerical'
-      elif dt_print_out.loc[i,'Feature_Type'] == 'datetime64[ns]':
-        dt_print_out.loc[i,'feature_print'] = 'Date'
-      elif dt_print_out.loc[i,'Feature_Type'] == 'int64':
-        dt_print_out.loc[i,'feature_print'] = 'Labels'  
+      if i != self.target:
+        if dt_print_out.loc[i,'Feature_Type'] == 'object':
+          dt_print_out.loc[i,'Data_Type'] = 'Categorical'
+        elif dt_print_out.loc[i,'Feature_Type'] == 'float64':
+          dt_print_out.loc[i,'Data_Type'] = 'Numeric'
+        elif dt_print_out.loc[i,'Feature_Type'] == 'datetime64[ns]':
+          dt_print_out.loc[i,'Data_Type'] = 'Date'
+        #elif dt_print_out.loc[i,'Feature_Type'] == 'int64':
+        #  dt_print_out.loc[i,'Data_Type'] = 'Categorical'
+      else:
+        dt_print_out.loc[i,'Data_Type'] = 'Label'
 
     # for ID column:
     for i in dt_print_out.index:
       if i in self.id_columns:
-        dt_print_out.loc[i,'feature_print'] = 'ID Column'
+        dt_print_out.loc[i,'Data_Type'] = 'ID Column'
 
-    display(dt_print_out[['feature_print']])
+    display(dt_print_out[['Data_Type']])
     self.response = input()
 
-    if self.response in ['quit','Quit','exit','EXIT','q','Q','e','E']:
-      sys.exit()
+    if self.response in ['quit','Quit','exit','EXIT','q','Q','e','E','QUIT','Exit']:
+      sys.exit('Read the documentation of setup to learn how to overwrite data types over the inferred types. setup function must run again before you continue modeling.')
     
     # drop time columns
     #data.drop(self.drop_time,axis=1,errors='ignore',inplace=True)
@@ -222,13 +230,14 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
     
     return(data)
   
-  def transform(self,data,y=None):
+  def transform(self,dataset,y=None):
     '''
       Args: 
         data: accepts a pandas data frame
       Returns:
         Panda Data Frame
     '''
+    data = dataset.copy()
     #very first thing we need to so is to check if the training and test data hace same columns
     #exception checking   
     import sys
@@ -257,7 +266,9 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
     return(data)
 
   # fit_transform
-  def fit_transform(self,data,y=None):
+  def fit_transform(self,dataset,y=None):
+
+    data= dataset.copy()
     # since this is for training , we dont nees any transformation since it has already been transformed in fit
     data = self.fit(data)
 
@@ -317,7 +328,8 @@ class Simple_Imputer(BaseEstimator,TransformerMixin):
     self.target = target_variable
     self.categorical_strategy = categorical_strategy
   
-  def fit(self,data,y=None): #
+  def fit(self,dataset,y=None): #
+    data = dataset.copy()
     # make a table for numerical variable with strategy stats
     if self.numeric_strategy == 'mean':
       self.numeric_stats = data.drop(self.target,axis=1).select_dtypes(include=['float64','int64']).apply(np.nanmean)
@@ -344,7 +356,8 @@ class Simple_Imputer(BaseEstimator,TransformerMixin):
 
       
   
-  def transform(self,data,y=None): 
+  def transform(self,dataset,y=None):
+    data = dataset.copy() 
     # for numeric columns
     for i,s in zip(data[self.numeric_columns].columns,self.numeric_stats):
       data[i].fillna(s,inplace=True)
@@ -365,7 +378,8 @@ class Simple_Imputer(BaseEstimator,TransformerMixin):
     
     return(data)
   
-  def fit_transform(self,data,y=None):
+  def fit_transform(self,dataset,y=None):
+    data = dataset.copy() 
     data= self.fit(data)
     return(self.transform(data))
 
@@ -394,7 +408,8 @@ class Surrogate_Imputer(BaseEstimator,TransformerMixin):
     self.target = target_variable
     self.categorical_strategy = categorical_strategy
   
-  def fit(self,data,y=None): #
+  def fit(self,dataset,y=None): #
+    data = dataset.copy()
     # make a table for numerical variable with strategy stats
     if self.numeric_strategy == 'mean':
       self.numeric_stats = data.drop(self.target,axis=1).select_dtypes(include=['float64','int64']).apply(np.nanmean)
@@ -446,7 +461,8 @@ class Surrogate_Imputer(BaseEstimator,TransformerMixin):
 
       
   
-  def transform(self,data,y=None): 
+  def transform(self,dataset,y=None):
+    data = dataset.copy() 
     # for numeric columns
     for i,s in zip(data[self.numeric_columns].columns,self.numeric_stats):
       array = data[i].isna()
@@ -488,7 +504,8 @@ class Surrogate_Imputer(BaseEstimator,TransformerMixin):
     
     return(data)
   
-  def fit_transform(self,data,y=None):
+  def fit_transform(self,dataset,y=None):
+    data = dataset.copy()
     data= self.fit(data)
     return(self.transform(data))
 # _______________________________________________________________________________________________________________________
@@ -500,22 +517,23 @@ class Scaling_and_Power_transformation(BaseEstimator,TransformerMixin):
     - ignores target variable 
       Args: 
         target: string , name of the target variable
-        function_to_apply: string , default 'ss' (standard scaler), all other {'mm','pt'} ( min max scaler and power transformer)
+        function_to_apply: string , default 'zscore' (standard scaler), all other {'minmaxm','pt'} ( min max scaler and power transformer)
 
   '''
 
-  def __init__(self,target,function_to_apply='mm'):
+  def __init__(self,target,function_to_apply='minmax'):
     self.target = target
     self.function_to_apply = function_to_apply
   
-  def fit(self,data,y=None):
+  def fit(self,dataset,y=None):
+    data = dataset.copy()
     # we only want to apply if there are numeric columns
     self.numeric_features = data.drop(self.target,axis=1,errors='ignore').select_dtypes(include=["float64",'int64']).columns
     if len(self.numeric_features) > 0:
-      if self.function_to_apply == 'ss':
+      if self.function_to_apply == 'zscore':
         self.scale_and_power = StandardScaler()
         self.scale_and_power.fit(data[self.numeric_features])
-      elif  self.function_to_apply == 'mm':
+      elif  self.function_to_apply == 'minmax':
         self.scale_and_power = MinMaxScaler()
         self.scale_and_power.fit(data[self.numeric_features])
       elif  self.function_to_apply == 'pt':
@@ -529,7 +547,8 @@ class Scaling_and_Power_transformation(BaseEstimator,TransformerMixin):
       return(None)
 
   
-  def transform(self,data,y=None):
+  def transform(self,dataset,y=None):
+    data = dataset.copy()
     
     if len(self.numeric_features) > 0:
       self.data_t = pd.DataFrame(self.scale_and_power.transform(data[self.numeric_features]))
@@ -558,19 +577,21 @@ class Make_Time_Features(BaseEstimator,TransformerMixin):
     -it is recommended to run Define_dataTypes first
       Args: 
         time_feature: list of feature names as datetime64[ns] , default empty/none , if empty/None , it will try to pickup dates automatically where data type is datetime64[ns]
-        list_of_features: list of required features , default value ['Month','weekday']
+        list_of_features: list of required features , default value ['month','weekday','is_month_end','is_month_start','hour']
 
   '''
 
-  def __init__(self,time_feature=[],list_of_features=['month','weekday']):
+  def __init__(self,time_feature=[],list_of_features=['month','weekday','is_month_end','is_month_start','hour']):
     self.time_feature = time_feature
     self.list_of_features_o = list_of_features
     return(None)
 
   def fit(self,data,y=None):
+
     return(None)
 
-  def transform(self,data,y=None):
+  def transform(self,dataset,y=None):
+    data = dataset.copy()
 
     # run fit transform first
 
@@ -599,15 +620,18 @@ class Make_Time_Features(BaseEstimator,TransformerMixin):
       
       # make hour column if choosen
       if 'hour' in self.list_of_features_o:
-        data[i+"_hour"] = [ datetime.time(r).hour for r in data[i] ]
-        data[i+"_hour"] = data[i+"_hour"].apply(str)
+        h = [ datetime.time(r).hour for r in data[i] ]
+        if sum(h) > 0:  
+          data[i+"_hour"] = h
+          data[i+"_hour"] = data[i+"_hour"].apply(str)
     
     # we dont need time columns any more 
     data.drop(self.time_feature,axis=1,inplace=True)
 
     return(data)
 
-  def fit_transform(self,data,y=None):
+  def fit_transform(self,dataset,y=None):
+    data = dataset.copy()
     # if no columns names are given , then pick datetime columns
     if len(self.time_feature) == 0 :
       self.time_feature = [i for i in data.columns if data[i].dtype == 'datetime64[ns]']
@@ -637,8 +661,10 @@ class Make_Time_Features(BaseEstimator,TransformerMixin):
       
       # make hour column if choosen
       if 'hour' in self.list_of_features_o:
-        data[i+"_hour"] = [ datetime.time(r).hour for r in data[i] ]
-        data[i+"_hour"] = data[i+"_hour"].apply(str)
+        h = [ datetime.time(r).hour for r in data[i] ]
+        if sum(h) > 0:  
+          data[i+"_hour"] = h
+          data[i+"_hour"] = data[i+"_hour"].apply(str)
     
     # we dont need time columns any more 
     data.drop(self.time_feature,axis=1,inplace=True)
@@ -665,7 +691,8 @@ class Dummify(BaseEstimator,TransformerMixin):
     # creat ohe object 
     self.ohe = OneHotEncoder(handle_unknown='ignore')
   
-  def fit(self,data,y=None):
+  def fit(self,dataset,y=None):
+    data = dataset.copy()
     # will only do this if there are categorical variables 
     if len(data.select_dtypes(include=('object')).columns) > 0:
       # we need to learn the column names once the training data set is dummify
@@ -678,7 +705,8 @@ class Dummify(BaseEstimator,TransformerMixin):
       self.ohe.fit(data.drop(self.target,axis=1,errors='ignore').select_dtypes(include=('object')))
     return(None)
  
-  def transform(self,data,y=None):
+  def transform(self,dataset,y=None):
+    data = dataset.copy()
     # will only do this if there are categorical variables 
     if len(data.select_dtypes(include=('object')).columns) > 0:
       # only for test data
@@ -694,7 +722,8 @@ class Dummify(BaseEstimator,TransformerMixin):
     else:
       return(data)
 
-  def fit_transform(self,data,y=None):
+  def fit_transform(self,dataset,y=None):
+    data = dataset.copy()
     # will only do this if there are categorical variables 
     if len(data.select_dtypes(include=('object')).columns) > 0:
       self.fit(data)
@@ -731,8 +760,10 @@ class Empty(BaseEstimator,TransformerMixin):
 
 # ______________________________________________________________________________________________________________________________________________________
 # preprocess_all_in_one
-def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =None,categorical_features=[],numerical_features=[],time_features=[],features_todrop=[],time_features_extracted=['Month','Dayofweek'],
-                               imputation_type = "simple imputer" ,numeric_imputation_strategy='mean',categorical_imputation_strategy='not_available'
+def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =None,categorical_features=[],numerical_features=[],time_features=[],features_todrop=[],
+                               imputation_type = "simple imputer" ,numeric_imputation_strategy='mean',categorical_imputation_strategy='not_available',
+                                scale_data= False, scaling_method='minmax',
+                                Power_transform_data = False
                                ):
   
   '''
@@ -744,7 +775,7 @@ def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =No
 
   # WE NEED TO AUTO INFER the ml use case
   c1 = train_data[target_variable].dtype == 'int64'
-  c2 = len(train_data[target_variable].unique())/len(train_data) <= .20
+  c2 = len(train_data[target_variable].unique()) <= 20
   c3 = train_data[target_variable].dtype == 'object'
   
   if ml_usecase is None:
@@ -766,9 +797,16 @@ def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =No
     imputer = Surrogate_Imputer(numeric_strategy=numeric_imputation_strategy,categorical_strategy=categorical_imputation_strategy,target_variable=target_variable)
 
   global scaling ,P_transform
-  scaling = Scaling_and_Power_transformation(target=target_variable,)
-  P_transform = Scaling_and_Power_transformation(target=target_variable,function_to_apply='pt')
+  if scale_data == True:
+    scaling = Scaling_and_Power_transformation(target=target_variable,function_to_apply=scaling_method)
+  else: 
+    scaling = Empty()
   
+  if Power_transform_data== True:
+    P_transform = Scaling_and_Power_transformation(target=target_variable,function_to_apply='pt')
+  else:
+    P_transform= Empty()
+
   # for Time Variables
   feature_time = Make_Time_Features()
   global dummy
