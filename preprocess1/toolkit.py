@@ -1,14 +1,13 @@
 import pandas as pd
 import numpy as np
-from scipy import stats # for mode imputation
 import ipywidgets as wg 
 from IPython.display import display
 from ipywidgets import Layout
-from scipy import stats
 from sklearn.base import BaseEstimator , TransformerMixin
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.preprocessing import PowerTransformer
+from sklearn.preprocessing import QuantileTransformer
 from sklearn.preprocessing import OneHotEncoder
 import sys 
 from sklearn.pipeline import Pipeline
@@ -59,6 +58,9 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
       Panda Data Frame
     '''
     data = dataset.copy()
+    # remove sepcial char from column names
+    #data.columns= data.columns.str.replace('[,]','')
+
     # we will take float as numberic, object as categorical from the begning
     # fir int64, we will check to see what is the proportion of unique counts to the total lenght of the data
     # if proportion is lower, then it is probabaly categorical 
@@ -175,8 +177,9 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
 
     # lets remove duplicates
     # remove duplicate columns (columns with same values)
-    data_c = data.T.drop_duplicates()
-    data = data_c.T
+    #(too expensive on bigger data sets)
+    # data_c = data.T.drop_duplicates()
+    # data = data_c.T
     #remove columns with duplicate name 
     data = data.loc[:,~data.columns.duplicated()]
     # Remove NAs
@@ -188,35 +191,35 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
 
     #self.training_columns = data.drop(self.target,axis=1).columns
 
-    # since due to transpose , all data types have changed, lets change the dtypes to original
-    for i in data.columns: # we are taking all the columns in test , so we dot have to worry about droping target column
-      data[i] = data[i].astype(self.learent_dtypes[self.learent_dtypes.index==i])
+    # since due to transpose , all data types have changed, lets change the dtypes to original---- not required any more since not transposing any more
+    # for i in data.columns: # we are taking all the columns in test , so we dot have to worry about droping target column
+    #   data[i] = data[i].astype(self.learent_dtypes[self.learent_dtypes.index==i])
     
 
     display(wg.Text(value="Following data types have been inferred automatically, if they are correct press enter to continue or type 'quit' otherwise.",layout =Layout(width='100%')))
     
     dt_print_out = pd.DataFrame(self.learent_dtypes, columns=['Feature_Type'])
-    dt_print_out['Data_Type'] = ""
+    dt_print_out['Data Type'] = ""
     
     for i in dt_print_out.index:
       if i != self.target:
         if dt_print_out.loc[i,'Feature_Type'] == 'object':
-          dt_print_out.loc[i,'Data_Type'] = 'Categorical'
+          dt_print_out.loc[i,'Data Type'] = 'Categorical'
         elif dt_print_out.loc[i,'Feature_Type'] == 'float64':
-          dt_print_out.loc[i,'Data_Type'] = 'Numeric'
+          dt_print_out.loc[i,'Data Type'] = 'Numeric'
         elif dt_print_out.loc[i,'Feature_Type'] == 'datetime64[ns]':
-          dt_print_out.loc[i,'Data_Type'] = 'Date'
+          dt_print_out.loc[i,'Data Type'] = 'Date'
         #elif dt_print_out.loc[i,'Feature_Type'] == 'int64':
-        #  dt_print_out.loc[i,'Data_Type'] = 'Categorical'
+        #  dt_print_out.loc[i,'Data Type'] = 'Categorical'
       else:
-        dt_print_out.loc[i,'Data_Type'] = 'Label'
+        dt_print_out.loc[i,'Data Type'] = 'Label'
 
     # for ID column:
     for i in dt_print_out.index:
       if i in self.id_columns:
-        dt_print_out.loc[i,'Data_Type'] = 'ID Column'
+        dt_print_out.loc[i,'Data Type'] = 'ID Column'
 
-    display(dt_print_out[['Data_Type']])
+    display(dt_print_out[['Data Type']])
     self.response = input()
 
     if self.response in ['quit','Quit','exit','EXIT','q','Q','e','E','QUIT','Exit']:
@@ -238,6 +241,9 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
         Panda Data Frame
     '''
     data = dataset.copy()
+    # remove sepcial char from column names
+    #data.columns= data.columns.str.replace('[,]','')
+
     #very first thing we need to so is to check if the training and test data hace same columns
     #exception checking   
     import sys
@@ -517,13 +523,14 @@ class Scaling_and_Power_transformation(BaseEstimator,TransformerMixin):
     - ignores target variable 
       Args: 
         target: string , name of the target variable
-        function_to_apply: string , default 'zscore' (standard scaler), all other {'minmaxm','pt'} ( min max scaler and power transformer)
+        function_to_apply: string , default 'zscore' (standard scaler), all other {'minmaxm','yj','quantile'} ( min max,yeo-johnson & quantile power transformation )
 
   '''
 
-  def __init__(self,target,function_to_apply='minmax'):
+  def __init__(self,target,function_to_apply='zscore',random_state_quantile=42):
     self.target = target
     self.function_to_apply = function_to_apply
+    self.random_state_quantile = random_state_quantile
   
   def fit(self,dataset,y=None):
     data = dataset.copy()
@@ -536,8 +543,11 @@ class Scaling_and_Power_transformation(BaseEstimator,TransformerMixin):
       elif  self.function_to_apply == 'minmax':
         self.scale_and_power = MinMaxScaler()
         self.scale_and_power.fit(data[self.numeric_features])
-      elif  self.function_to_apply == 'pt':
+      elif  self.function_to_apply == 'yj':
         self.scale_and_power = PowerTransformer(method='yeo-johnson',standardize=False)
+        self.scale_and_power.fit(data[self.numeric_features])
+      elif  self.function_to_apply == 'quantile':
+        self.scale_and_power = QuantileTransformer(random_state=self.random_state_quantile,output_distribution='normal')
         self.scale_and_power.fit(data[self.numeric_features])
       
 
@@ -699,10 +709,15 @@ class Dummify(BaseEstimator,TransformerMixin):
       # save non categorical data
       self.data_nonc = data.drop(self.target,axis=1,errors='ignore').select_dtypes(exclude=('object'))
       self.target_column =  data[[self.target]]
-      # plus we will only take object data types
-      self.data_columns  = pd.get_dummies(data.drop(self.target,axis=1,errors='ignore').select_dtypes(include=('object'))).columns
-      # now fit the trainin column
+      # # plus we will only take object data types
+      try:
+        self.data_columns  = pd.get_dummies(data.drop(self.target,axis=1,errors='ignore').select_dtypes(include=('object'))).columns
+      except:
+        self.data_columns = []
+      # # now fit the trainin column
       self.ohe.fit(data.drop(self.target,axis=1,errors='ignore').select_dtypes(include=('object')))
+    else:
+      None
     return(None)
  
   def transform(self,dataset,y=None):
@@ -739,6 +754,31 @@ class Dummify(BaseEstimator,TransformerMixin):
     else:
       return(data)
 
+
+#____________________________________________________________________________________________________________________________________________________________________
+# Column Name cleaner transformer
+class Clean_Colum_Names(BaseEstimator,TransformerMixin):
+  '''
+    - Cleans special chars that are not supported by jason format
+  '''
+
+  def __init__(self):
+    return(None)
+
+  def fit(self,data,y=None):
+    return(None)
+
+  def transform(self,dataset,y=None):
+    data= dataset.copy()
+    data.columns= data.columns.str.replace('[,}{\]\[\:\"\']','')
+    return(data)
+
+  def fit_transform(self,dataset,y=None):
+    data= dataset.copy()
+    data.columns= data.columns.str.replace('[,}{\]\[\:\"\']','')
+    return(data)
+
+
 #____________________________________________________________________________________________________________________________________________________________________
 # Empty transformer
 class Empty(BaseEstimator,TransformerMixin):
@@ -762,8 +802,10 @@ class Empty(BaseEstimator,TransformerMixin):
 # preprocess_all_in_one
 def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =None,categorical_features=[],numerical_features=[],time_features=[],features_todrop=[],
                                imputation_type = "simple imputer" ,numeric_imputation_strategy='mean',categorical_imputation_strategy='not_available',
-                                scale_data= False, scaling_method='minmax',
-                                Power_transform_data = False
+                                scale_data= False, scaling_method='zscore',
+                                Power_transform_data = False, Power_transform_method ='quantile',
+                                random_state=42
+
                                ):
   
   '''
@@ -803,16 +845,18 @@ def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =No
     scaling = Empty()
   
   if Power_transform_data== True:
-    P_transform = Scaling_and_Power_transformation(target=target_variable,function_to_apply='pt')
+    P_transform = Scaling_and_Power_transformation(target=target_variable,function_to_apply=Power_transform_method)
   else:
     P_transform= Empty()
 
   # for Time Variables
+  global feature_time
   feature_time = Make_Time_Features()
   global dummy
   dummy = Dummify(target_variable)
   
-
+  # clean column names for special char
+  clean_names =Clean_Colum_Names()
   
 
   global pipe
@@ -823,6 +867,7 @@ def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =No
                  ('scaling',scaling),
                  ('P_transform',P_transform),
                  ('dummy',dummy),
+                 ('clean_names',clean_names)
                  ])
   
   if test_data is not None:
