@@ -810,8 +810,10 @@ def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =No
   
   '''
     Follwoing preprocess steps are taken:
-      - 1) Auto infer data types
+      - 1) Auto infer data types 
       - 2) Impute (simple or with surrogate columns)
+      - 3) Scales & Power Transform (zscore,minmax,yeo-johnson,quantile)
+      - 4) Remove special characters from column names such as commas, square brackets etc to make it compatible with jason dependent models
       - 3) One Hot / Dummy encoding
   '''
 
@@ -845,7 +847,7 @@ def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =No
     scaling = Empty()
   
   if Power_transform_data== True:
-    P_transform = Scaling_and_Power_transformation(target=target_variable,function_to_apply=Power_transform_method)
+    P_transform = Scaling_and_Power_transformation(target=target_variable,function_to_apply=Power_transform_method,random_state_quantile=random_state)
   else:
     P_transform= Empty()
 
