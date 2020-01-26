@@ -1,7 +1,7 @@
 Metadata-Version: 1.0
 Name: preprocess1
-Version: 0.1.25
-Summary: A package to eliminate multicollinearity
+Version: 0.1.27
+Summary: A package to provide easy preprocessing steps for Machine Learning in an easy way
 Home-page: https://github.com/mfahadakbar
 Author: Fahad Akbar
 Author-email: fahadakbar@gmail.com
