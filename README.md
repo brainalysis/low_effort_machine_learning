@@ -19,8 +19,17 @@ Fahad
 
 # Instructions:
 
-Function takes three arguments
+Function takes following arguments
 
  1) Data : Panda's Data Frame is required
- 2) Threshold: The minimum level of coorelation that you want to see between variables , between 0 - 1 , absolute values
+ 2) Threshold: The minimum level of correlation that you want to see between variables , between 0 - 1 , absolute values
  3) Target : specify the target column (y)
+ 4) correlation_with_target_threshold: minimum absolute correlation required between every feature and the target variable , default 1.0 (0.0 to 1.0)
+ 5) correlation_with_target_preference: float (0.0 to 1.0), default .08 ,while choosing between a pair of features w.r.t multicol & correlation target , this gives 
+    the option to favour one measur to another. e.g. if value is .6 , during feature selection tug of war, correlation target measure will have a higher say.
+    A value of .5 means both measure have equal say
+
+# Preprocessing Toolkit
+
+This portion attempts to simplyfy the preprocessing steps that are some time essential for ML / modeling , such as imputations,
+one hot encoding and so on. Predetermined preprocessing 'paths' are available under preprocess1.toolkit . See docstring for more details
