@@ -8,10 +8,10 @@ requirements = ["scikit-learn","datetime","datefinder"] # add plotly later on
 
 setup(
     name="preprocess1",
-    version="0.1.25",
+    version="0.1.27",
     author="Fahad Akbar",
     author_email="fahadakbar@gmail.com",
-    description="A package to eliminate multicollinearity",
+    description="A package to provide easy preprocessing steps for Machine Learning in an easy way",
     #long_description=readme,
     #long_description_content_type="text/markdown",
     url="https://github.com/mfahadakbar",
