@@ -10,13 +10,18 @@ class Fix_multicollinearity(BaseEstimator,TransformerMixin):
               threshold (float): The utmost absolute pearson correlation tolerated beyween featres from 0.0 to 1.0
               target_variable (str): The target variable/column name
               correlation_with_target_threshold: minimum absolute correlation required between every feature and the target variable , default 1.0 (0.0 to 1.0)
+              correlation_with_target_preference: float (0.0 to 1.0), default .08 ,while choosing between a pair of features w.r.t multicol & correlation target , this gives 
+              the option to favour one measur to another. e.g. if value is .6 , during feature selection tug of war, correlation target measure will have a higher say.
+              A value of .5 means both measure have equal say 
   """
   # mamke a constructer
   
-  def __init__ (self,threshold,target_variable,correlation_with_target_threshold= 0.0):
+  def __init__ (self,threshold,target_variable,correlation_with_target_threshold= 0.0,correlation_with_target_preference=.80):
       self.threshold = threshold
       self.target_variable = target_variable
       self.correlation_with_target_threshold= correlation_with_target_threshold
+      self.target_corr_weight = correlation_with_target_preference
+      self.multicol_weight = 1-correlation_with_target_preference
   
   # Make fit method
   
@@ -28,13 +33,19 @@ class Fix_multicollinearity(BaseEstimator,TransformerMixin):
             None
     '''
       
-    
+    import numpy as np
+    import numpy as np
+    import pandas as pd
     #global data1
     self.data1 = data.copy()
     # make an correlation db with abs correlation db
     # self.data_c = self.data1.T.drop_duplicates()
     # self.data1 = self.data_c.T
-    self.corr_matrix = abs(self.data1.corr())
+    corr = pd.DataFrame(np.corrcoef(self.data1.T))
+    corr.columns = self.data1.columns
+    corr.index = self.data1.columns
+    # self.corr_matrix = abs(self.data1.corr())
+    self.corr_matrix = abs(corr)
 
     # for every diagonal value, make it Nan
     self.corr_matrix.values[tuple([np.arange(self.corr_matrix.shape[0])]*2)] = np.NaN
@@ -87,7 +98,7 @@ class Fix_multicollinearity(BaseEstimator,TransformerMixin):
     self.merge = self.merge.iloc[::2, :]
 
     # make a ranking column to eliminate features
-    self.merge['rank_x'] = round((self.merge['avg_cor_y']- self.merge['avg_cor_x']) + (self.merge['target_variable_x'] - self.merge['target_variable_y']),6) # round it to 6 digits
+    self.merge['rank_x'] = round(self.multicol_weight*(self.merge['avg_cor_y']- self.merge['avg_cor_x']) +  self.target_corr_weight*(self.merge['target_variable_x'] - self.merge['target_variable_y']),6) # round it to 6 digits
     self.merge1 = self.merge # delete here
     ## Now there will be rows where the rank will be exactly zero, these is where the value (corelartion between features) is exactly one ( like price and price^2)
     ## so in that case , we can simply pick one of the variable
@@ -148,7 +159,9 @@ class Fix_multicollinearity(BaseEstimator,TransformerMixin):
     # now we want to keep only the columns that have more correlation with traget by a threshold
     self.to_drop_taret_correlation=[] 
     if self.correlation_with_target_threshold != 0.0:
-      self.to_drop_taret_correlation = data.drop(self.to_drop,axis=1).corr()[self.target_variable].abs()
+      corr = pd.DataFrame(np.corrcoef(data.drop(self.to_drop,axis=1).T),columns= data.drop(self.to_drop,axis=1).columns,index=data.drop(self.to_drop,axis=1).columns)
+      self.to_drop_taret_correlation = corr[self.target_variable].abs()
+      # self.to_drop_taret_correlation = data.drop(self.to_drop,axis=1).corr()[self.target_variable].abs()
       self.to_drop_taret_correlation = self.to_drop_taret_correlation [self.to_drop_taret_correlation < self.correlation_with_target_threshold ]
       self.to_drop_taret_correlation = list(self.to_drop_taret_correlation.index)
       #self.to_drop = self.corr + self.to_drop
@@ -161,7 +174,7 @@ class Fix_multicollinearity(BaseEstimator,TransformerMixin):
   # now Transform
   def transform(self,data,y=None):
     '''
-        Args:
+        Args:f
             data = takes preprocessed data frame
         Returns:
             data frame
