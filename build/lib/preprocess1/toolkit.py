@@ -6,9 +6,16 @@ from ipywidgets import Layout
 from sklearn.base import BaseEstimator , TransformerMixin
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import RobustScaler
+from sklearn.preprocessing import MaxAbsScaler
 from sklearn.preprocessing import PowerTransformer
 from sklearn.preprocessing import QuantileTransformer
 from sklearn.preprocessing import OneHotEncoder
+from sklearn.decomposition import PCA
+from sklearn.decomposition import KernelPCA
+from sklearn.cross_decomposition import PLSRegression
+from sklearn.manifold import TSNE
+from sklearn.decomposition import IncrementalPCA
 import sys 
 from sklearn.pipeline import Pipeline
 from sklearn import metrics
@@ -32,7 +39,7 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
       remove columns and rows where all the records are null
   '''
 
-  def __init__(self,target,ml_usecase,categorical_features=[],numerical_features=[],time_features=[],features_todrop=[]): # nothing to define
+  def __init__(self,target,ml_usecase,categorical_features=[],numerical_features=[],time_features=[],features_todrop=[],display_types=True): # nothing to define
     '''
     User to define the target (y) variable
       args:
@@ -49,6 +56,7 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
     self.numerical_features = numerical_features
     self.time_features =time_features
     self.features_todrop = features_todrop
+    self.display_types = display_types
   
   def fit(self,dataset,y=None): # learning data types of all the columns
     '''
@@ -81,6 +89,12 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
         data[i] = data[i].astype('int64')
       except:
         None
+    
+    # if data type is bool , convert to categorical
+    for i in data.columns:
+      if data[i].dtype=='bool':
+        data[i] = data[i].astype('object')
+    
 
     # some times we have id column in the data set, we will try to find it and then  will drop it if found
     len_samples = len(data)
@@ -195,35 +209,41 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
     # for i in data.columns: # we are taking all the columns in test , so we dot have to worry about droping target column
     #   data[i] = data[i].astype(self.learent_dtypes[self.learent_dtypes.index==i])
     
+    if self.display_types == True:
+      display(wg.Text(value="Following data types have been inferred automatically, if they are correct press enter to continue or type 'quit' otherwise.",layout =Layout(width='100%')))
+      
+      dt_print_out = pd.DataFrame(self.learent_dtypes, columns=['Feature_Type'])
+      dt_print_out['Data Type'] = ""
+      
+      for i in dt_print_out.index:
+        if i != self.target:
+          if dt_print_out.loc[i,'Feature_Type'] == 'object':
+            dt_print_out.loc[i,'Data Type'] = 'Categorical'
+          elif dt_print_out.loc[i,'Feature_Type'] == 'float64':
+            dt_print_out.loc[i,'Data Type'] = 'Numeric'
+          elif dt_print_out.loc[i,'Feature_Type'] == 'datetime64[ns]':
+            dt_print_out.loc[i,'Data Type'] = 'Date'
+          #elif dt_print_out.loc[i,'Feature_Type'] == 'int64':
+          #  dt_print_out.loc[i,'Data Type'] = 'Categorical'
+        else:
+          dt_print_out.loc[i,'Data Type'] = 'Label'
 
-    display(wg.Text(value="Following data types have been inferred automatically, if they are correct press enter to continue or type 'quit' otherwise.",layout =Layout(width='100%')))
-    
-    dt_print_out = pd.DataFrame(self.learent_dtypes, columns=['Feature_Type'])
-    dt_print_out['Data Type'] = ""
-    
-    for i in dt_print_out.index:
-      if i != self.target:
-        if dt_print_out.loc[i,'Feature_Type'] == 'object':
-          dt_print_out.loc[i,'Data Type'] = 'Categorical'
-        elif dt_print_out.loc[i,'Feature_Type'] == 'float64':
-          dt_print_out.loc[i,'Data Type'] = 'Numeric'
-        elif dt_print_out.loc[i,'Feature_Type'] == 'datetime64[ns]':
-          dt_print_out.loc[i,'Data Type'] = 'Date'
-        #elif dt_print_out.loc[i,'Feature_Type'] == 'int64':
-        #  dt_print_out.loc[i,'Data Type'] = 'Categorical'
-      else:
-        dt_print_out.loc[i,'Data Type'] = 'Label'
+      # for ID column:
+      for i in dt_print_out.index:
+        if i in self.id_columns:
+          dt_print_out.loc[i,'Data Type'] = 'ID Column'
+      
+      # if we added the dummy  target column , then drop it 
+      dt_print_out.drop(index='dummy_target',errors='ignore',inplace=True)
+      # drop any columns that were asked to drop
+      dt_print_out.drop(index=self.features_todrop,errors='ignore',inplace=True)
 
-    # for ID column:
-    for i in dt_print_out.index:
-      if i in self.id_columns:
-        dt_print_out.loc[i,'Data Type'] = 'ID Column'
 
-    display(dt_print_out[['Data Type']])
-    self.response = input()
+      display(dt_print_out[['Data Type']])
+      self.response = input()
 
-    if self.response in ['quit','Quit','exit','EXIT','q','Q','e','E','QUIT','Exit']:
-      sys.exit('Read the documentation of setup to learn how to overwrite data types over the inferred types. setup function must run again before you continue modeling.')
+      if self.response in ['quit','Quit','exit','EXIT','q','Q','e','E','QUIT','Exit']:
+        sys.exit('Read the documentation of setup to learn how to overwrite data types over the inferred types. setup function must run again before you continue modeling.')
     
     # drop time columns
     #data.drop(self.drop_time,axis=1,errors='ignore',inplace=True)
@@ -523,7 +543,7 @@ class Scaling_and_Power_transformation(BaseEstimator,TransformerMixin):
     - ignores target variable 
       Args: 
         target: string , name of the target variable
-        function_to_apply: string , default 'zscore' (standard scaler), all other {'minmaxm','yj','quantile'} ( min max,yeo-johnson & quantile power transformation )
+        function_to_apply: string , default 'zscore' (standard scaler), all other {'minmaxm','yj','quantile','robust','maxabs'} ( min max,yeo-johnson & quantile power transformation, robust and MaxAbs scaler )
 
   '''
 
@@ -549,7 +569,12 @@ class Scaling_and_Power_transformation(BaseEstimator,TransformerMixin):
       elif  self.function_to_apply == 'quantile':
         self.scale_and_power = QuantileTransformer(random_state=self.random_state_quantile,output_distribution='normal')
         self.scale_and_power.fit(data[self.numeric_features])
-      
+      elif  self.function_to_apply == 'robust':
+        self.scale_and_power = RobustScaler()
+        self.scale_and_power.fit(data[self.numeric_features])
+      elif  self.function_to_apply == 'maxabs':
+        self.scale_and_power = MaxAbsScaler()
+        self.scale_and_power.fit(data[self.numeric_features])
 
       else:
         return(None)
@@ -797,13 +822,171 @@ class Empty(BaseEstimator,TransformerMixin):
 
   def fit_transform(self,data,y=None):
     return(self.transform(data))
+#____________________________________________________________________________________________________________________________________________________________________
+# reduce feature space
+class Reduce_Dimensions_For_Unsupervised_Path(BaseEstimator,TransformerMixin):
+  '''
+    - Takes DF, return same DF with different types of dimensionality reduction modles (pca_liner , pca_kernal, tsne , incremental)
+    - except pca_liner, every other method takes integer as number of components 
+    - only takes numeric variables (float & One Hot Encoded)
+    - it is intended to solve unsupervised ML usecases , such as Clustering / Anomaly detection (so it only applies to transform one hot encoded data)
+  '''
 
-# ______________________________________________________________________________________________________________________________________________________
+  def __init__(self, target, method='pca_liner', variance_retained_or_number_of_components=.99, random_state=42):
+    self.target= target
+    self.variance_retained = variance_retained_or_number_of_components
+    self.random_state= random_state
+    self.method = method
+    return(None)
+
+  def fit(self,data,y=None):
+    return(None)
+
+  def transform(self,dataset,y=None):
+    if self.is_categ > 0:
+      data_pca = self.pca.transform(dataset)
+      data_pca = pd.DataFrame(data_pca)
+      data_pca.columns = ["Component_"+str(i) for i in np.arange(1,len(data_pca.columns)+1)]
+      data_pca.index = dataset.index
+      return(data_pca)
+    else:
+      return(dataset)
+
+  def fit_transform(self,dataset,y=None):
+    self.is_categ = len([i for i in dataset.columns if len(dataset[i].unique()) == 2 and dataset[i].unique()[0] in [0,1] and dataset[i].unique()[1] in [0,1]])
+    # we will only apply this if there are catagorical variables
+    if self.is_categ > 0:
+      # We are only running this if 
+      # define
+      if self.method == 'pca_liner':
+        self.pca = PCA(self.variance_retained,random_state=self.random_state)
+        # fit transform
+        data_pca = self.pca.fit_transform(dataset.drop(self.target,axis=1))
+        data_pca = pd.DataFrame(data_pca)
+        data_pca.columns = ["Component_"+str(i) for i in np.arange(1,len(data_pca.columns)+1)]
+        data_pca.index = dataset.index
+        data_pca[self.target] = dataset[self.target]
+        return(data_pca)
+      elif self.method == 'pca_kernal': # take number of components only
+        self.pca = KernelPCA(self.variance_retained,kernel='rbf',random_state=self.random_state,n_jobs=-1)
+        # fit transform
+        data_pca = self.pca.fit_transform(dataset.drop(self.target,axis=1))
+        data_pca = pd.DataFrame(data_pca)
+        data_pca.columns = ["Component_"+str(i) for i in np.arange(1,len(data_pca.columns)+1)]
+        data_pca.index = dataset.index
+        data_pca[self.target] = dataset[self.target]
+        return(data_pca)
+      elif self.method == 'tsne': # take number of components only
+        self.pca = TSNE(self.variance_retained,random_state=self.random_state)
+        # fit transform
+        data_pca = self.pca.fit_transform(dataset.drop(self.target,axis=1))
+        data_pca = pd.DataFrame(data_pca)
+        data_pca.columns = ["Component_"+str(i) for i in np.arange(1,len(data_pca.columns)+1)]
+        data_pca.index = dataset.index
+        data_pca[self.target] = dataset[self.target]
+        return(data_pca)
+      elif self.method == 'incremental': # take number of components only
+        self.pca = IncrementalPCA(self.variance_retained)
+        # fit transform
+        data_pca = self.pca.fit_transform(dataset.drop(self.target,axis=1))
+        data_pca = pd.DataFrame(data_pca)
+        data_pca.columns = ["Component_"+str(i) for i in np.arange(1,len(data_pca.columns)+1)]
+        data_pca.index = dataset.index
+        data_pca[self.target] = dataset[self.target]
+        return(data_pca)
+      else:
+        return(dataset)
+    
+    else:
+      return(dataset)
+#____________________________________________________________________________________________________________________________________________________________________
+# reduce feature space
+class Reduce_Dimensions_For_Supervised_Path(BaseEstimator,TransformerMixin):
+  '''
+    - Takes DF, return same DF with different types of dimensionality reduction modles (pca_liner , pca_kernal, tsne , pls, incremental)
+    - except pca_liner, every other method takes integer as number of components 
+    - only takes numeric variables (float & One Hot Encoded)
+    - it is intended to solve supervised ML usecases , such as classification / regression
+  '''
+
+  def __init__(self, target, method='pca_liner', variance_retained_or_number_of_components=.99, random_state=42):
+    self.target= target
+    self.variance_retained = variance_retained_or_number_of_components
+    self.random_state= random_state
+    self.method = method
+    return(None)
+
+  def fit(self,data,y=None):
+    return(None)
+
+  def transform(self,dataset,y=None):
+    if self.method in ['pca_liner' , 'pca_kernal', 'tsne' , 'pls', 'incremental']:
+      data_pca = self.pca.transform(dataset)
+      data_pca = pd.DataFrame(data_pca)
+      data_pca.columns = ["Component_"+str(i) for i in np.arange(1,len(data_pca.columns)+1)]
+      data_pca.index = dataset.index
+      return(data_pca)
+    else:
+      return(dataset)
+
+  def fit_transform(self,dataset,y=None):
+
+    if self.method == 'pca_liner':
+      self.pca = PCA(self.variance_retained,random_state=self.random_state)
+      # fit transform
+      data_pca = self.pca.fit_transform(dataset.drop(self.target,axis=1))
+      data_pca = pd.DataFrame(data_pca)
+      data_pca.columns = ["Component_"+str(i) for i in np.arange(1,len(data_pca.columns)+1)]
+      data_pca.index = dataset.index
+      data_pca[self.target] = dataset[self.target]
+      return(data_pca)
+    elif self.method == 'pca_kernal': # take number of components only
+      self.pca = KernelPCA(self.variance_retained,kernel='rbf',random_state=self.random_state,n_jobs=-1)
+      # fit transform
+      data_pca = self.pca.fit_transform(dataset.drop(self.target,axis=1))
+      data_pca = pd.DataFrame(data_pca)
+      data_pca.columns = ["Component_"+str(i) for i in np.arange(1,len(data_pca.columns)+1)]
+      data_pca.index = dataset.index
+      data_pca[self.target] = dataset[self.target]
+      return(data_pca)
+    elif self.method == 'pls': # take number of components only
+      self.pca = PLSRegression(self.variance_retained,scale=False)
+      # fit transform
+      data_pca = self.pca.fit_transform(dataset.drop(self.target,axis=1),dataset[self.target])[0] 
+      data_pca = pd.DataFrame(data_pca)
+      data_pca.columns = ["Component_"+str(i) for i in np.arange(1,len(data_pca.columns)+1)]
+      data_pca.index = dataset.index
+      data_pca[self.target] = dataset[self.target]
+      return(data_pca)
+    elif self.method == 'tsne': # take number of components only
+      self.pca = TSNE(self.variance_retained,random_state=self.random_state)
+      # fit transform
+      data_pca = self.pca.fit_transform(dataset.drop(self.target,axis=1))
+      data_pca = pd.DataFrame(data_pca)
+      data_pca.columns = ["Component_"+str(i) for i in np.arange(1,len(data_pca.columns)+1)]
+      data_pca.index = dataset.index
+      data_pca[self.target] = dataset[self.target]
+      return(data_pca)
+    elif self.method == 'incremental': # take number of components only
+      self.pca = IncrementalPCA(self.variance_retained)
+      # fit transform
+      data_pca = self.pca.fit_transform(dataset.drop(self.target,axis=1))
+      data_pca = pd.DataFrame(data_pca)
+      data_pca.columns = ["Component_"+str(i) for i in np.arange(1,len(data_pca.columns)+1)]
+      data_pca.index = dataset.index
+      data_pca[self.target] = dataset[self.target]
+      return(data_pca)
+    else:
+      return(dataset)
+
+
+#___________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________
 # preprocess_all_in_one
-def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =None,categorical_features=[],numerical_features=[],time_features=[],features_todrop=[],
+def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =None,categorical_features=[],numerical_features=[],time_features=[],features_todrop=[],display_types=True,
                                imputation_type = "simple imputer" ,numeric_imputation_strategy='mean',categorical_imputation_strategy='not_available',
                                 scale_data= False, scaling_method='zscore',
                                 Power_transform_data = False, Power_transform_method ='quantile',
+                                apply_pca = False , pca_method = 'pca_liner',pca_variance_retained_or_number_of_components =.99 ,
                                 random_state=42
 
                                ):
@@ -812,9 +995,11 @@ def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =No
     Follwoing preprocess steps are taken:
       - 1) Auto infer data types 
       - 2) Impute (simple or with surrogate columns)
-      - 3) Scales & Power Transform (zscore,minmax,yeo-johnson,quantile)
-      - 4) Remove special characters from column names such as commas, square brackets etc to make it compatible with jason dependent models
-      - 3) One Hot / Dummy encoding
+      - 3) Scales & Power Transform (zscore,minmax,yeo-johnson,quantile,maxabs,robust)
+      - 4) Remove special characters from column names such as commas, square brackets etc to make it competible with jason dependednt models
+      - 5) One Hot / Dummy encoding
+      - 6) Apply diamension reduction techniques such as pca_liner, pca_kernal, incremental, tsne & pls
+          - except for pca_liner, all other method only takes number of component (as integer) i.e no variance explaination metohd available  
   '''
 
   # WE NEED TO AUTO INFER the ml use case
@@ -830,7 +1015,7 @@ def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =No
   
   
   global dtypes 
-  dtypes = DataTypes_Auto_infer(target=target_variable,ml_usecase=ml_usecase,categorical_features=categorical_features,numerical_features=numerical_features,time_features=time_features,features_todrop=features_todrop)
+  dtypes = DataTypes_Auto_infer(target=target_variable,ml_usecase=ml_usecase,categorical_features=categorical_features,numerical_features=numerical_features,time_features=time_features,features_todrop=features_todrop,display_types=display_types)
 
   
   # for imputation
@@ -860,6 +1045,13 @@ def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =No
   # clean column names for special char
   clean_names =Clean_Colum_Names()
   
+  
+  # apply pca
+  global pca
+  if apply_pca == True:
+    pca = Reduce_Dimensions_For_Supervised_Path(target=target_variable,method = pca_method ,variance_retained_or_number_of_components=pca_variance_retained_or_number_of_components, random_state=random_state)
+  else:
+    pca= Empty()
 
   global pipe
   pipe = Pipeline([
@@ -869,7 +1061,8 @@ def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =No
                  ('scaling',scaling),
                  ('P_transform',P_transform),
                  ('dummy',dummy),
-                 ('clean_names',clean_names)
+                 ('clean_names',clean_names),
+                 ('pca',pca)
                  ])
   
   if test_data is not None:
@@ -877,3 +1070,98 @@ def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =No
   else:
     return(pipe.fit_transform(train_data))
 
+
+
+# ______________________________________________________________________________________________________________________________________________________
+# preprocess_all_in_one_unsupervised
+def Preprocess_Path_Two(train_data,ml_usecase=None,test_data =None,categorical_features=[],numerical_features=[],time_features=[],features_todrop=[],display_types=False,
+                               imputation_type = "simple imputer" ,numeric_imputation_strategy='mean',categorical_imputation_strategy='not_available',
+                                scale_data= False, scaling_method='zscore',
+                                Power_transform_data = False, Power_transform_method ='quantile',
+                                apply_pca = True , pca_method = 'pca_liner',pca_variance_retained_or_number_of_components =.99 , 
+                                random_state=42
+
+                               ):
+  
+  '''
+    Follwoing preprocess steps are taken:
+      - THIS IS BUILD OF UNSUPERVISED LEARNING , FOLLOWES SAME PATH AS PATH ONE
+      - 1) Auto infer data types 
+      - 2) Impute (simple or with surrogate columns)
+      - 3) Scales & Power Transform (zscore,minmax,yeo-johnson,quantile)
+      - 4) Remove special characters from column names such as commas, square brackets etc to make it competible with jason dependednt models
+      - 5) One Hot / Dummy encoding
+      - 6) Apply diamension reduction techniques such as pca_liner, pca_kernal, incremental, tsne
+          - except for pca_liner, all other method only takes number of component (as integer) i.e no variance explaination metohd available  
+  '''
+  
+  # just make a dummy target variable
+  target_variable = 'dummy_target'
+  train_data[target_variable] = 2
+
+  # WE NEED TO AUTO INFER the ml use case
+  c1 = train_data[target_variable].dtype == 'int64'
+  c2 = len(train_data[target_variable].unique()) <= 20
+  c3 = train_data[target_variable].dtype == 'object'
+  
+  # dummy usecase
+  ml_usecase ='regression'
+  
+
+  global dtypes 
+  dtypes = DataTypes_Auto_infer(target=target_variable,ml_usecase=ml_usecase,categorical_features=categorical_features,numerical_features=numerical_features,time_features=time_features,features_todrop=features_todrop,display_types=display_types)
+
+  
+  # for imputation
+  global imputer
+  if imputation_type == "simple imputer":
+    imputer = Simple_Imputer(numeric_strategy=numeric_imputation_strategy, target_variable= target_variable,categorical_strategy=categorical_imputation_strategy)
+  else:
+    imputer = Surrogate_Imputer(numeric_strategy=numeric_imputation_strategy,categorical_strategy=categorical_imputation_strategy,target_variable=target_variable)
+
+  global scaling ,P_transform
+  if scale_data == True:
+    scaling = Scaling_and_Power_transformation(target=target_variable,function_to_apply=scaling_method)
+  else: 
+    scaling = Empty()
+  
+  if Power_transform_data== True:
+    P_transform = Scaling_and_Power_transformation(target=target_variable,function_to_apply=Power_transform_method,random_state_quantile=random_state)
+  else:
+    P_transform= Empty()
+
+  # for Time Variables
+  global feature_time
+  feature_time = Make_Time_Features()
+  global dummy
+  dummy = Dummify(target_variable)
+  
+  # clean column names for special char
+  clean_names =Clean_Colum_Names()
+
+  # apply pca
+  global pca
+  if apply_pca == True:
+    pca = Reduce_Dimensions_For_Unsupervised_Path(target=target_variable,method = pca_method ,variance_retained_or_number_of_components=pca_variance_retained_or_number_of_components, random_state=random_state)
+  else:
+    pca= Empty()
+
+  global pipe
+  pipe = Pipeline([
+                 ('dtypes',dtypes),
+                 ('imputer',imputer),
+                 ('feature_time',feature_time),
+                 ('scaling',scaling),
+                 ('P_transform',P_transform),
+                 ('dummy',dummy),
+                 ('clean_names',clean_names),
+                 ('pca',pca)
+                 ])
+  
+  if test_data is not None:
+    train_t = pipe.fit_transform(train_data)
+    test_t = pipe.transform(test_data)
+    return(train_t.drop(target_variable,axis=1),test_t)
+  else:
+    train_t = pipe.fit_transform(train_data)
+    return(train_t.drop(target_variable,axis=1))
