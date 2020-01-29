@@ -1,7 +1,7 @@
 Metadata-Version: 1.0
 Name: preprocess1
-Version: 0.1.27
-Summary: A package to provide easy preprocessing steps for Machine Learning in an easy way
+Version: 0.1.30
+Summary: A package to provide preprocessing steps for Machine Learning in an super easy way !
 Home-page: https://github.com/mfahadakbar
 Author: Fahad Akbar
 Author-email: fahadakbar@gmail.com
