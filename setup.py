@@ -2,13 +2,10 @@ from setuptools import setup, find_packages
 
 requirements = ["scikit-learn","datetime","datefinder"] # add plotly later on
 
-# this is where you mention dependencies for your package
-# only add libraries that are not by default installed by python , so if your package only
-# used say pandas or numpy , you dont need to put them here as they are already installed 
 
 setup(
     name="preprocess1",
-    version="0.1.30",
+    version="0.1.31",
     author="Fahad Akbar",
     author_email="fahadakbar@gmail.com",
     description="A package to provide preprocessing steps for Machine Learning in an super easy way !",
