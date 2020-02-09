@@ -5,7 +5,7 @@ requirements = ["scikit-learn","datetime","datefinder","pyod"] # add plotly late
 
 setup(
     name="preprocess1",
-    version="0.1.33",
+    version="0.1.34",
     author="Fahad Akbar",
     author_email="fahadakbar@gmail.com",
     description="A package to provide preprocessing steps for Machine Learning in an super easy way !",
