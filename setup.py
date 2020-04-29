@@ -5,7 +5,7 @@ requirements = ["scikit-learn","datetime","datefinder","pyod","lightgbm"] # add 
 
 setup(
     name="preprocess1",
-    version="0.1.35",
+    version="0.1.36",
     author="Fahad Akbar",
     author_email="fahadakbar@gmail.com",
     description="A package to provide preprocessing steps for Machine Learning in an super easy way !",
