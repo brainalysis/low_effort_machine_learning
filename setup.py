@@ -1,11 +1,11 @@
 from setuptools import setup, find_packages
 
-requirements = ["scikit-learn","datetime","datefinder","pyod"] # add plotly later on
+requirements = ["scikit-learn","datetime","datefinder","pyod","lightgbm"] # add plotly later on
 
 
 setup(
     name="preprocess1",
-    version="0.1.34",
+    version="0.1.35",
     author="Fahad Akbar",
     author_email="fahadakbar@gmail.com",
     description="A package to provide preprocessing steps for Machine Learning in an super easy way !",
