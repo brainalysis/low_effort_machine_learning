@@ -1,3 +1,8 @@
+# Module: Preprocess
+# Author: Fahad Akbar <m.akbar@queensu.ca>
+# License: MIT
+
+
 import pandas as pd
 import numpy as np
 import ipywidgets as wg 
@@ -112,18 +117,17 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
     self.id_columns = []
     for i in data.drop(self.target,axis=1).columns:
       if data[i].dtype in ['int64','float64']:
-        if sum(data[i].isna()) == 0: 
-          if len(data[i].unique()) == len_samples:
-            min_number = min(data[i])
-            max_number = max(data[i])
-            arr = np.arange(min_number,max_number+1,1)
-            try:
-              all_match = sum(data[i].sort_values() == arr)
-              if all_match == len_samples:
-                self.id_columns.append(i) 
-            except:
-              None 
-    
+        if i not in self.numerical_features:
+          if sum(data[i].isna()) == 0: 
+            if len(data[i].unique()) == len_samples:
+              # we extract column and sort it
+              features = data[i].sort_values()
+              # no we subtract i+1-th value from i-th (calculating increments)
+              increments = features.diff()[1:]
+              # if all increments are 1 (with float tolerance), then the column is ID column
+              if sum(np.abs(increments-1) < 1e-7) == len_samples-1:
+                self.id_columns.append(i)
+      
     data_len = len(data)                        
         
     # wiith csv , if we have any null in  a colum that was int , panda will read it as float.
@@ -1110,6 +1114,7 @@ class Dummify(BaseEstimator,TransformerMixin):
 
   def __init__(self,target):
     self.target = target
+
     
     # creat ohe object 
     self.ohe = OneHotEncoder(handle_unknown='ignore')
@@ -1205,22 +1210,23 @@ class Outlier(BaseEstimator,TransformerMixin):
     # except:
     #   None
 
+    input_data = data.drop(self.target,axis=1)
     if 'knn' in self.methods:
       self.knn = KNN(contamination=self.contamination)
-      self.knn.fit(data.drop(self.target,axis=1))
-      knn_predict = self.knn.predict(data.drop(self.target,axis=1))
+      self.knn.fit(input_data)
+      knn_predict = self.knn.predict(input_data)
       data['knn'] = knn_predict
     
     if 'iso' in self.methods:
       self.iso = IForest(contamination=self.contamination,random_state=self.random_state,behaviour='new')
-      self.iso.fit(data.drop(self.target,axis=1))
-      iso_predict = self.iso.predict(data.drop(self.target,axis=1))
+      self.iso.fit(input_data)
+      iso_predict = self.iso.predict(input_data)
       data['iso'] = iso_predict
 
     if 'pca' in self.methods:
       self.pca = PCA_od(contamination=self.contamination,random_state=self.random_state)
-      self.pca.fit(data.drop(self.target,axis=1))
-      pca_predict = self.pca.predict(data.drop(self.target,axis=1))
+      self.pca.fit(input_data)
+      pca_predict = self.pca.predict(input_data)
       data['pca'] = pca_predict
 
     data['vote_outlier'] = 0
@@ -1930,6 +1936,68 @@ class Fix_multicollinearity(BaseEstimator,TransformerMixin):
     self.fit(data)
     return(self.transform(data))
 
+#____________________________________________________________________________________________________________________________________________________________________
+# handle perfect multicollinearity 
+class Remove_100(BaseEstimator,TransformerMixin):
+  '''
+    - Takes DF, return data frame while removing features that are perfectly correlated (droping one)
+  '''
+
+  def __init__(self,target):
+    self.target = target
+    return(None)
+
+  def fit(self,data,y=None):
+    return(None)
+
+  def transform(self,dataset,y=None):
+    return(dataset.drop(self.columns_to_drop,axis=1))
+
+  def fit_transform(self,dataset,y=None):
+    data = dataset.copy()
+
+    targetless_data = data.drop(self.target, axis=1)
+
+    # correlation should be calculated between at least two features, if there is only 1, there is nothing to delete
+    if len(targetless_data.columns) <= 1:
+      return data
+
+    corr = pd.DataFrame(np.corrcoef(targetless_data.T))
+    corr.columns = targetless_data.columns
+    corr.index = targetless_data.columns
+    corr_matrix = abs(corr)
+
+    # Now, add a column for variable name and drop index
+    corr_matrix['column'] = corr_matrix.index
+    corr_matrix.reset_index(drop=True,inplace=True)
+
+    # now we need to melt it , so that we can correlation pair wise , with two columns 
+    cols =corr_matrix.column
+    melt = corr_matrix.melt(id_vars= ['column'],value_vars=cols).sort_values(by='value',ascending=False)#.dropna()
+    melt['value'] = round(melt['value'],2) # round it to two digits
+
+    # now pick variables where value is one and 'column' != variabe ( both columns are not same)
+    c1 = melt['value'] == 1.00
+    c2 = melt['column'] != melt['variable']
+    melt = melt[((c1 == True) & (c2 == True)) ]
+
+    # we need to now eleminate all the pairs that are actually duplicate e.g cor(x,y) = cor(y,x) , they are the same , we need to find these and drop them
+    melt['all_columns'] = melt['column'] + melt['variable']
+
+    # this puts all the coresponding pairs of features togather , so that we can only take one, since they are just the duplicates
+    melt['all_columns'] = [sorted(i) for i in melt['all_columns'] ]
+
+    # # now sort by new column
+    melt = melt.sort_values(by='all_columns')
+
+    # # take every second colums
+    melt = melt.iloc[::2, :]
+
+    # lets keep the columns on the left hand side of the table
+    self.columns_to_drop = melt['variable']
+
+    return(data.drop(self.columns_to_drop,axis=1))
+
 #_______________________________________________________________________________________________________________________________________________________________________________________________
 # custome DFS 
 class DFS_Classic(BaseEstimator,TransformerMixin):
@@ -2227,10 +2295,12 @@ def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =No
                                 remove_outliers = False, outlier_contamination_percentage= 0.01,outlier_methods=['pca','iso','knn'],
                                 apply_feature_selection = False, feature_selection_top_features_percentage=.80,
                                 remove_multicollinearity = False, maximum_correlation_between_features= 0.90,
+                                remove_perfect_collinearity= False,
                                 apply_feature_interactions= False, feature_interactions_to_apply=['multiply','divide','add','subtract'],feature_interactions_top_features_to_select_percentage=.01,
                                 cluster_entire_data= False, range_of_clusters_to_try=20, 
                                 apply_pca = False , pca_method = 'pca_liner',pca_variance_retained_or_number_of_components =.99 ,
                                 random_state=42
+                                
 
                                ):
   
@@ -2419,6 +2489,14 @@ def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =No
   else:
     fix_multi = Empty()
   
+  # remove 100% collinearity
+  if remove_perfect_collinearity == True:
+    global fix_perfect
+    fix_perfect = Remove_100(target=target_variable)
+  else:
+    fix_perfect = Empty()
+
+  
   # apply dfs
   if apply_feature_interactions == True:
     global dfs
@@ -2454,6 +2532,7 @@ def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =No
                  ('rem_outliers',rem_outliers),
                  ('cluster_all',cluster_all),
                  ('dummy',dummy),
+                 ('fix_perfect',fix_perfect),
                  ('clean_names',clean_names),
                  ('feature_select',feature_select),
                  ('fix_multi',fix_multi),
@@ -2482,7 +2561,8 @@ def Preprocess_Path_Two(train_data,ml_usecase=None,test_data =None,categorical_f
                                 scale_data= False, scaling_method='zscore',
                                 Power_transform_data = False, Power_transform_method ='quantile',
                                 remove_outliers = False, outlier_contamination_percentage= 0.01,outlier_methods=['pca','iso','knn'],
-                                remove_multicollinearity = False, maximum_correlation_between_features= 0.90,  
+                                remove_multicollinearity = False, maximum_correlation_between_features= 0.90,
+                                remove_perfect_collinearity= False,  
                                 apply_pca = False , pca_method = 'pca_liner',pca_variance_retained_or_number_of_components =.99 , 
                                 random_state=42
 
@@ -2639,6 +2719,13 @@ def Preprocess_Path_Two(train_data,ml_usecase=None,test_data =None,categorical_f
   else:
     fix_multi = Empty()
 
+  # remove 100% collinearity
+  if remove_perfect_collinearity == True:
+    global fix_perfect
+    fix_perfect = Remove_100(target=target_variable)
+  else:
+    fix_perfect = Empty()
+  
   # apply pca
   global pca
   if apply_pca == True:
@@ -2662,6 +2749,7 @@ def Preprocess_Path_Two(train_data,ml_usecase=None,test_data =None,categorical_f
                  ('scaling',scaling),
                  ('P_transform',P_transform),
                  ('binn',binn),
+                 ('fix_perfect',fix_perfect),
                  ('rem_outliers',rem_outliers),
                  ('dummy',dummy),
                  ('clean_names',clean_names),
