@@ -1,3 +1,5 @@
 /dist/*
 /build/*
+/Build/*
+*.7
 /preprocess1.egg-info/*
