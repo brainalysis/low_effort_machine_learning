@@ -20,17 +20,12 @@ requirements = ["scikit-learn","datetime","datefinder","pyod","lightgbm"] # add 
 
 setup(
     name="preprocess1",
-    version="0.1.37",
+    version="0.1.38",
     author="Fahad Akbar",
     author_email="fahad.akbar@gmail.com",
-    description="A package to provide preprocessing steps for Machine Learning in an super easy way !",
-    #long_description=readme,
-    #long_description_content_type="text/markdown",
+    long_description=readme(),
+    long_description_content_type="text/markdown",
     url="https://github.com/mfahadakbar",
     packages=find_packages(),
-    install_requires=requirements,
-    #classifiers=[
-    #    "Programming Language :: Python :: 3.7",
-    #    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
-    #],
+    install_requires=requirements
 )
