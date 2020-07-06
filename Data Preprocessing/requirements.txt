@@ -11,4 +11,3 @@ scipy
 lightgbm
 datefinder
 datetime
-calendar
