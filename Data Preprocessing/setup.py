@@ -16,12 +16,12 @@ def readme():
 
 
 requirements = ["scikit-learn","datetime","pandas","numpy","ipywidgets","IPython",
-"scipy","calendar","datefinder","pyod","lightgbm"] # add plotly later on
+"scipy","datefinder","pyod","lightgbm"] # add plotly later on
 
 
 setup(
     name="preprocess1",
-    version="0.1.40",
+    version="0.1.41",
     author="Fahad Akbar",
     author_email="fahad.akbar@gmail.com",
     long_description=readme(),
