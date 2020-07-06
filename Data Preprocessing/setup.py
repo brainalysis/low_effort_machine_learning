@@ -21,7 +21,7 @@ requirements = ["scikit-learn","datetime","pandas","numpy","ipywidgets","IPython
 
 setup(
     name="preprocess1",
-    version="0.1.39",
+    version="0.1.40",
     author="Fahad Akbar",
     author_email="fahad.akbar@gmail.com",
     long_description=readme(),
