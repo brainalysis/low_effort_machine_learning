@@ -1,0 +1,14 @@
+pip==19.3.1
+wheel==0.33.6
+twine==1.13.0
+pandas
+numpy
+ipywidgets
+IPython
+scikit-learn
+pyod
+scipy
+lightgbm
+datefinder
+datetime
+calendar

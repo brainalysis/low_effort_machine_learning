@@ -15,7 +15,8 @@ def readme():
     return README
 
 
-requirements = ["scikit-learn","datetime","datefinder","pyod","lightgbm"] # add plotly later on
+requirements = ["scikit-learn","datetime","pandas","numpy","ipywidgets","IPython",
+"scipy","calendar","datefinder","pyod","lightgbm"] # add plotly later on
 
 
 setup(
