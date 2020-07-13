@@ -1,7 +1,7 @@
 # PreProcess1
 ## Super Easy Way of PreProcessing your Data!
 
-Good News! 
+Good News!
 
 Preprocess1 simplifies the preprocessing steps that are some time essential for ML/modelling, such as imputations,
 one hot encoding. There are over 20 preprocessing steps available. A summary of the options is below:
