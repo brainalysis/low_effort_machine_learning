@@ -1,5 +1,6 @@
-# Module: Preprocess
+# Module: Data Preprocess
 # Author: Fahad Akbar <m.akbar@queensu.ca>
+# Copyright: Fahad Akbar
 # License: MIT
 
 
@@ -39,6 +40,9 @@ import datefinder
 from datetime import datetime
 import calendar
 from sklearn.preprocessing import LabelEncoder
+import os
+import sys
+import pickle
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.max_rows', 500)
 
@@ -51,7 +55,7 @@ warnings.filterwarnings('ignore')
 class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
   '''
     - This will try to infer data types automatically, option to override learent data types is also available.
-    - This alos automatically delets duplicate columns (values or same colume name), removes rows where target variable is null and 
+    - This also automatically deletes duplicate columns (values or same colum name), removes rows where target variable is null and 
       remove columns and rows where all the records are null
   '''
 
@@ -82,19 +86,19 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
       Panda Data Frame
     '''
     data = dataset.copy()
-    # remove sepcial char from column names
+    # remove special char from column names
     #data.columns= data.columns.str.replace('[,]','')
 
-    # we will take float as numberic, object as categorical from the begning
-    # fir int64, we will check to see what is the proportion of unique counts to the total lenght of the data
-    # if proportion is lower, then it is probabaly categorical 
-    # however, proportion can be lower / disturebed due to samller denominator (total lenghth / number of samples)
+    # we will take float as numberic, object as categorical from the beginning
+    # fir int64, we will check to see what is the proportion of unique counts to the total length of the data
+    # if proportion is lower, then it is probably categorical 
+    # however, proportion can be lower  due to smaller denominator (total length / number of samples)
     # so we will take the following chart
     # 0-50 samples, threshold is 24%
     # 50-100 samples, th is 12%
     # 50-250 samples , th is 4.8%
     # 250-500 samples, th is 2.4%
-    # 500 and above 2% or belwo
+    # 500 and above 2% or below
    
     # # if there are inf or -inf then replace them with NaN
     # data.replace([np.inf,-np.inf],np.NaN,inplace=True)
@@ -130,17 +134,17 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
       
     data_len = len(data)                        
         
-    # wiith csv , if we have any null in  a colum that was int , panda will read it as float.
+    # with csv , if we have any null in  a colum that was int , panda will read it as float.
     # so first we need to convert any such floats that have NaN and unique values are lower than 20
     for i in data.drop(self.target,axis=1).columns:
       if data[i].dtypes == 'float64':
         # count how many Nas are there
         na_count = sum(data[i].isna())
-        # count how many digits are there that have decimiles
+        # count how many digits are there that have decimals
         count_float = np.nansum([ False if r.is_integer() else True for r in data[i]])
-        # total decimiels digits
+        # total decimals digits
         count_float = count_float - na_count # reducing it because we know NaN is counted as a float digit
-        # now if there isnt any float digit , & unique levales are less than 20 and there are Na's then convert it to object
+        # now if there isn't any float digit , & unique levales are less than 20 and there are Na's then convert it to object
         if ( (count_float == 0) & (len(data[i].unique()) <=20) & (na_count>0) ):
           data[i] = data[i].astype('object')
         
@@ -167,7 +171,7 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
           data[i]= data[i].astype('float64')
 
 
-    # # if colum is objfloat  and only have two unique counts , this is probabaly one hot encoded
+    # # if colum is objfloat  and only have two unique counts , this is probably one hot encoded
     # # make it object
     for i in data.columns:
       if ((data[i].dtypes == 'float64') & (len(data[i].unique())==2)):
@@ -187,7 +191,7 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
       except:
         continue
 
-    # now in case we were given any specific columns dtypes in advance , we will over ride theos 
+    # now in case we were given any specific columns dtypes in advance , we will over ride those
     if len(self.categorical_features) > 0:
       for i in self.categorical_features:
         try:
@@ -290,10 +294,10 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
         Panda Data Frame
     '''
     data = dataset.copy()
-    # remove sepcial char from column names
+    # remove special char from column names
     #data.columns= data.columns.str.replace('[,]','')
 
-    #very first thing we need to so is to check if the training and test data hace same columns
+    #very first thing we need to so is to check if the training and test data has same columns
     #exception checking   
     import sys
 
@@ -301,7 +305,7 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
       if i not in data.columns:
         sys.exit('(Type Error): test data does not have column ' + str(i) + " which was used for training")
 
-    ## we only need to take test columns that we used in ttaining (test in production may have a lot more columns)
+    ## we only need to take test columns that we used in training (test in production may have a lot more columns)
     data = data[self.final_training_columns]
 
     
@@ -315,7 +319,7 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
     # drop id columns
     data.drop(self.id_columns,axis=1,errors='ignore',inplace=True)
 
-     # drop custome columns
+     # drop custom columns
     data.drop(self.features_todrop,axis=1,errors='ignore',inplace=True)
     
     return(data)
@@ -324,7 +328,7 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
   def fit_transform(self,dataset,y=None):
 
     data= dataset.copy()
-    # since this is for training , we dont nees any transformation since it has already been transformed in fit
+    # since this is for training , we don't need any transformation since it has already been transformed in fit
     data = self.fit(data)
 
     # additionally we just need to treat the target variable
@@ -353,7 +357,7 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
     # drop id columns
     data.drop(self.id_columns,axis=1,errors='ignore',inplace=True)
 
-    # drop custome columns
+    # drop custom columns
     data.drop(self.features_todrop,axis=1,errors='ignore',inplace=True)
     
     # finally save a list of columns that we would need from test data set
@@ -361,6 +365,8 @@ class DataTypes_Auto_infer(BaseEstimator,TransformerMixin):
 
     
     return(data)
+  
+  #spell checked
 # _______________________________________________________________________________________________________________________
 # Imputation
 class Simple_Imputer(BaseEstimator,TransformerMixin):
@@ -369,7 +375,7 @@ class Simple_Imputer(BaseEstimator,TransformerMixin):
       Highly recommended to run Define_dataTypes class first
       Numerical values can be imputed with mean or median 
       categorical missing values will be replaced with "Other"
-      Time values are imputed with the most frequesnt value
+      Time values are imputed with the most frequent value
       Ignores target (y) variable    
       Args: 
         Numeric_strategy: string , all possible values {'mean','median'}
@@ -393,7 +399,7 @@ class Simple_Imputer(BaseEstimator,TransformerMixin):
 
     self.numeric_columns = data.drop(self.target,axis=1).select_dtypes(include=['float64','int64']).columns
 
-    #for Catgorical , 
+    #for Categorical , 
     if self.categorical_strategy == 'most frequent':
       self.categorical_columns = data.drop(self.target,axis=1).select_dtypes(include=['object']).columns
       self.categorical_stats = pd.DataFrame(columns=self.categorical_columns) # place holder
@@ -444,12 +450,12 @@ class Surrogate_Imputer(BaseEstimator,TransformerMixin):
   '''
     Imputes feature with surrogate column (numerical,categorical & Time).
       - Highly recommended to run Define_dataTypes class first
-      - it is also recommended to only apply this to features where it makes business sense to creat surrogate column
+      - it is also recommended to only apply this to features where it makes business sense to create surrogate column
       - feature name has to be provided
       - only able to handle one feature at a time
       - Numerical values can be imputed with mean or median 
       - categorical missing values will be replaced with "Other"
-      - Time values are imputed with the most frequesnt value
+      - Time values are imputed with the most frequent value
       - Ignores target (y) variable    
       Args: 
         feature_name: string, provide features name
@@ -480,7 +486,7 @@ class Surrogate_Imputer(BaseEstimator,TransformerMixin):
       else:
         self.numeric_na.loc[0,i] = False 
 
-    #for Catgorical , 
+    #for Categorical , 
     if self.categorical_strategy == 'most frequent':
       self.categorical_columns = data.drop(self.target,axis=1).select_dtypes(include=['object']).columns
       self.categorical_stats = pd.DataFrame(columns=self.categorical_columns) # place holder
@@ -565,12 +571,12 @@ class Surrogate_Imputer(BaseEstimator,TransformerMixin):
     return(self.transform(data))
 # _______________________________________________________________________________________________________________________
 # Zero and Near Zero Variance
-class Zroe_NearZero_Variance(BaseEstimator,TransformerMixin):
+class Zero_NearZero_Variance(BaseEstimator,TransformerMixin):
   '''
     - it eliminates the features having zero variance
     - it eliminates the features haveing near zero variance
     - Near zero variance is determined by 
-      -1) Count of unique points divided by the total length of the feature has to be lower than a pre sepcified threshold 
+      -1) Count of unique points divided by the total length of the feature has to be lower than a pre specified threshold 
       -2) Most common point(count) divided by the second most common point(count) in the feature is greater than a pre specified threshold
       Once both conditions are met , the feature is dropped  
     -Ignores target variable
@@ -602,7 +608,7 @@ class Zroe_NearZero_Variance(BaseEstimator,TransformerMixin):
         second=100
       else:
         second = u.iloc[0,0]/u.iloc[1,0]
-    # if both conditions are true then drop the column, however, we dont want to alter column that indicate NA's
+    # if both conditions are true then drop the column, however, we don't want to alter column that indicate NA's
       if ((first <= 0.10) and (second >=20) and (i[-10:]!='_surrogate')):
         self.to_drop.append(i) 
     # now drop if the column has zero variance
@@ -620,16 +626,16 @@ class Zroe_NearZero_Variance(BaseEstimator,TransformerMixin):
     self.fit(data)
     return(self.transform(data))
 #____________________________________________________________________________________________________________________________
-# rare catagorical variables
-class Catagorical_variables_With_Rare_levels(BaseEstimator,TransformerMixin):
+# rare categorical variables
+class Categorical_variables_With_Rare_levels(BaseEstimator,TransformerMixin):
   '''
-    -Merges levels in catagorical features with more frequent level  if they appear less than a threshold count 
+    -Merges levels in categorical features with more frequent level  if they appear less than a threshold count 
       e.g. Col=[a,a,a,a,b,b,c,c]
-      if threshold is set to 2 , then c will be mrged with b because both are below threshold
-      There has to be atleast two levels belwo threshold for this to work 
-      the process will keep going until all the levels have atleast 2(threshold) counts
-    -Only handles catagorical features
-    -It is recommended to run the Zroe_NearZero_Variance and Define_dataTypes first
+      if threshold is set to 2 , then c will be merged with b because both are below threshold
+      There has to be at least two levels below threshold for this to work 
+      the process will keep going until all the levels have at least 2(threshold) counts
+    -Only handles categorical features
+    -It is recommended to run the Zero_NearZero_Variance and Define_dataTypes first
     -Ignores target variable 
       Args: 
         threshold: int , default 10
@@ -642,19 +648,19 @@ class Catagorical_variables_With_Rare_levels(BaseEstimator,TransformerMixin):
     self.threshold = threshold
     self.target = target
     self.new_level_name = new_level_name
-  def fit(self,dataset,y=None): # we will learn for what columnns what are the level to merge as others
-    # every level of the catagorical feature has to be more than threshols, if not they will be clubed togather as "others"
-    # in order to apply, there should be atleast two levels belwo the threshold ! 
-    # creat a place holder
+  def fit(self,dataset,y=None): # we will learn for what columns what are the level to merge as others
+    # every level of the categorical feature has to be more than threshold, if not they will be clubbed together as "others"
+    # in order to apply, there should be at least two levels below the threshold ! 
+    # create a place holder
     data = dataset.copy()
     self.ph = pd.DataFrame(columns=data.drop(self.target,axis=1).select_dtypes(include="object").columns)
-    #ph.columns = df.columns# catagorical only 
+    #ph.columns = df.columns# categorical only 
     for i in data[self.ph.columns].columns:
-        # determine the infrequebt count
+        # determine the infrequent count
         v_c = data[i].value_counts()
         count_th = round(v_c.quantile(self.threshold))
         a = np.sum(pd.DataFrame(data[i].value_counts().sort_values()) [i]  <= count_th)
-        if a >= 2: # rare levels has to be atleast two
+        if a >= 2: # rare levels has to be at least two
           count = pd.DataFrame( data[i].value_counts().sort_values())
           count.columns = ['fre']
           count = count[count['fre']<=count_th]
@@ -669,7 +675,7 @@ class Catagorical_variables_With_Rare_levels(BaseEstimator,TransformerMixin):
 
   
   def transform(self,dataset,y=None): # 
-    # transorm 
+    # transform 
     data = dataset.copy()
     for i in data[self.ph.columns].columns:
       t_replace = self.ph.loc[0,i]
@@ -682,12 +688,12 @@ class Catagorical_variables_With_Rare_levels(BaseEstimator,TransformerMixin):
     return(self.transform(data))
 
 # _______________________________________________________________________________________________________________________
-# new catagorical level in test
-class New_Catagorical_Levels_in_TestData(BaseEstimator,TransformerMixin):
+# new categorical level in test
+class New_Categorical_Levels_in_TestData(BaseEstimator,TransformerMixin):
   '''
-    -This treats if a new level appears in the test dataset catagorical's feature (i.e a level on whihc model was not trained previously) 
+    # -This treats if a new level appears in the test dataset categorical feature (i.e a level on which model was not trained previously) 
     -It simply replaces the new level in test data set with the most frequent or least frequent level in the same feature in the training data set
-    -It is recommended to run the Zroe_NearZero_Variance and Define_dataTypes first
+    -It is recommended to run the Zero_NearZero_Variance and Define_dataTypes first
     -Ignores target variable 
       Args: 
         target: string , name of the target variable
@@ -710,7 +716,7 @@ class New_Catagorical_Levels_in_TestData(BaseEstimator,TransformerMixin):
 
   
   def transform(self,data,y=None): # 
-    # transorm 
+    # transform 
     # we need to learn the same for test data , and then we will compare to check what levels are new in there
     self.ph_test_level = pd.DataFrame(columns=data.drop(self.target,axis=1,errors='ignore').select_dtypes(include="object").columns)
     for i in self.ph_test_level.columns:
@@ -739,7 +745,7 @@ class Group_Similar_Features(BaseEstimator,TransformerMixin):
     - Only works on numerical features
       Args: 
         list_of_similar_features: list of list, string , e.g. [['col',col2],['col3','col4']]
-        group_name: list, group name/names to be added as prefix to aggregate features, e.g ['gorup1','group2']
+        group_name: list, group name/names to be added as prefix to aggregate features, e.g ['group1','group2']
   '''
 
   def __init__(self,group_name=[],list_of_grouped_features=[[]]):
@@ -778,14 +784,14 @@ class Group_Similar_Features(BaseEstimator,TransformerMixin):
     
 
 #____________________________________________________________________________________________________________________________________________________________________
-# Binning for Continious
+# Binning for Continuous
 class Binning(BaseEstimator,TransformerMixin):
   '''
-    - Converts numerical variables to catagorical variable through binning
-    - Number of binns are automitically determined through Sturges method
-    - Once discretize, original feature will be dropped
+    - Converts numerical variables to categorical variable through binning
+    - Number of bins are automatically determined through Sturges method
+    - Once discrete, original feature will be dropped
         Args:
-            features_to_discretize: list of featur names to be binned
+            features_to_discretize: list of features names to be binned
 
   '''
 
@@ -803,7 +809,7 @@ class Binning(BaseEstimator,TransformerMixin):
       data_t = self.disc.transform(np.array(data[self.features_to_discretize]).reshape(-1,self.len_columns))
       # make pandas data frame
       data_t = pd.DataFrame(data_t,columns=self.features_to_discretize,index=data.index)
-      # all these columns are catagorical
+      # all these columns are categorical
       data_t = data_t.astype(str)
       # drop original columns
       data.drop(self.features_to_discretize,axis=1,inplace=True)
@@ -817,21 +823,21 @@ class Binning(BaseEstimator,TransformerMixin):
 
     if len(self.features_to_discretize) > 0:
 
-      # place holder for all the features for their binns  
-      self.binns = []
+      # place holder for all the features for their bins  
+      self.bins = []
       for i in self.features_to_discretize:
-        # get numbr of binns
+        # get numbs of bins
         hist, bin_edg = np.histogram(data[i],bins='sturges')
-        self.binns.append(len(hist))
+        self.bins.append(len(hist))
 
-      # how many colums to deal with
+      # how many columns to deal with
       self.len_columns = len(self.features_to_discretize)
       # now do fit transform 
-      self.disc = KBinsDiscretizer(n_bins=self.binns, encode='ordinal', strategy='kmeans')
+      self.disc = KBinsDiscretizer(n_bins=self.bins, encode='ordinal', strategy='kmeans')
       data_t = self.disc.fit_transform(np.array(data[self.features_to_discretize]).reshape(-1,self.len_columns))
       # make pandas data frame
       data_t = pd.DataFrame(data_t,columns=self.features_to_discretize,index=data.index)
-      # all these columns are catagorical
+      # all these columns are categorical
       data_t = data_t.astype(str)
       # drop original columns
       data.drop(self.features_to_discretize,axis=1,inplace=True)
@@ -910,7 +916,7 @@ class Scaling_and_Power_transformation(BaseEstimator,TransformerMixin):
     data = dataset.copy()
     self.fit(data)
     # convert target if appropriate
-    # default behavious is quantile transformer
+    # default behavior is quantile transformer
     # if ((self.ml_usecase == 'regression') and (self.transform_target == True)):
     #   self.scale_and_power_target = QuantileTransformer(random_state=self.random_state_quantile,output_distribution='normal')
     #   data[self.target]=self.scale_and_power_target.fit_transform(np.array(data[self.target]).reshape(-1,1))
@@ -923,7 +929,7 @@ class Target_Transformation(BaseEstimator,TransformerMixin):
   '''
     - Applies Power Transformation (yeo-johnson , Box-Cox) to target variable (Applicable to Regression only)
       - 'bc' for Box_Coc & 'yj' for yeo-johnson, default is Box-Cox
-    - if target containes negtive / zero values , yeo-johnson is automatically selected 
+    - if target contains negative / zero values , yeo-johnson is automatically selected 
     
   '''
 
@@ -986,35 +992,35 @@ class Make_Time_Features(BaseEstimator,TransformerMixin):
 
     # start making features for every column in the time list
     for i in self.time_feature:
-      # make month column if month is choosen
+      # make month column if month is chosen
       if 'month' in self.list_of_features_o:
         data[i+"_month"] = [datetime.date(r).month for r in data[i]]
         data[i+"_month"] = data[i+"_month"].apply(str)
 
-      # make weekday column if weekday is choosen ( 0 for monday 6 for sunday)
+      # make weekday column if weekday is chosen ( 0 for monday 6 for sunday)
       if 'weekday' in self.list_of_features_o:
         data[i+"_weekday"] = [datetime.weekday(r) for r in data[i]]
         data[i+"_weekday"] = data[i+"_weekday"].apply(str)
       
-      # make Is_month_end column  choosen
+      # make Is_month_end column  chosen
       if 'is_month_end' in self.list_of_features_o:
         data[i+"_is_month_end"] = [ 1 if calendar.monthrange(datetime.date(r).year,datetime.date(r).month)[1] == datetime.date(r).day  else 0 for r in data[i] ]
         data[i+"_is_month_end"] = data[i+"_is_month_end"].apply(str)
         
       
-      # make Is_month_start column if choosen
+      # make Is_month_start column if chosen
       if 'is_month_start' in self.list_of_features_o:
         data[i+"_is_month_start"] = [ 1 if datetime.date(r).day == 1 else 0 for r in data[i] ]
         data[i+"_is_month_start"] = data[i+"_is_month_start"].apply(str)
       
-      # make hour column if choosen
+      # make hour column if chosen
       if 'hour' in self.list_of_features_o:
         h = [ datetime.time(r).hour for r in data[i] ]
         if sum(h) > 0:  
           data[i+"_hour"] = h
           data[i+"_hour"] = data[i+"_hour"].apply(str)
     
-    # we dont need time columns any more 
+    # we don't need time columns any more 
     data.drop(self.time_feature,axis=1,inplace=True)
 
     return(data)
@@ -1027,35 +1033,35 @@ class Make_Time_Features(BaseEstimator,TransformerMixin):
     
     # now start making features for every column in the time list
     for i in self.time_feature:
-      # make month column if month is choosen
+      # make month column if month is chosen
       if 'month' in self.list_of_features_o:
         data[i+"_month"] = [datetime.date(r).month for r in data[i]]
         data[i+"_month"] = data[i+"_month"].apply(str)
 
-      # make weekday column if weekday is choosen ( 0 for monday 6 for sunday)
+      # make weekday column if weekday is chosen ( 0 for monday 6 for sunday)
       if 'weekday' in self.list_of_features_o:
         data[i+"_weekday"] = [datetime.weekday(r) for r in data[i]]
         data[i+"_weekday"] = data[i+"_weekday"].apply(str)
       
-      # make Is_month_end column  choosen
+      # make Is_month_end column  chosen
       if 'is_month_end' in self.list_of_features_o:
         data[i+"_is_month_end"] = [ 1 if calendar.monthrange(datetime.date(r).year,datetime.date(r).month)[1] == datetime.date(r).day  else 0 for r in data[i] ]
         data[i+"_is_month_end"] = data[i+"_is_month_end"].apply(str)
         
       
-      # make Is_month_start column if choosen
+      # make Is_month_start column if chosen
       if 'is_month_start' in self.list_of_features_o:
         data[i+"_is_month_start"] = [ 1 if datetime.date(r).day == 1 else 0 for r in data[i] ]
         data[i+"_is_month_start"] = data[i+"_is_month_start"].apply(str)
       
-      # make hour column if choosen
+      # make hour column if chosen
       if 'hour' in self.list_of_features_o:
         h = [ datetime.time(r).hour for r in data[i] ]
         if sum(h) > 0:  
           data[i+"_hour"] = h
           data[i+"_hour"] = data[i+"_hour"].apply(str)
     
-    # we dont need time columns any more 
+    # we don't need time columns any more 
     data.drop(self.time_feature,axis=1,inplace=True)
 
     return(data)
@@ -1085,7 +1091,7 @@ class Ordinal(BaseEstimator,TransformerMixin):
 
   def fit_transform(self,dataset,y=None):
     data = dataset.copy()
-    # creat categories from given keys in the data set
+    # create categories from given keys in the data set
     cat_list = []
     for i in self.info_as_dict.values():
       i = [np.array(i)]
@@ -1116,7 +1122,7 @@ class Dummify(BaseEstimator,TransformerMixin):
     self.target = target
 
     
-    # creat ohe object 
+    # create ohe object 
     self.ohe = OneHotEncoder(handle_unknown='ignore')
   
   def fit(self,dataset,y=None):
@@ -1132,7 +1138,7 @@ class Dummify(BaseEstimator,TransformerMixin):
         self.data_columns  = pd.get_dummies(data.drop(self.target,axis=1,errors='ignore').select_dtypes(include=('object'))).columns
       except:
         self.data_columns = []
-      # # now fit the trainin column
+      # # now fit the training column
       self.ohe.fit(data.drop(self.target,axis=1,errors='ignore').select_dtypes(include=('object')))
     else:
       None
@@ -1148,7 +1154,7 @@ class Dummify(BaseEstimator,TransformerMixin):
       array = self.ohe.transform(data.drop(self.target,axis=1,errors='ignore').select_dtypes(include=('object'))).toarray()
       data_dummies = pd.DataFrame(array,columns= self.data_columns)
       data_dummies.index = self.data_nonc.index
-      #now put target , numerical and categorical variables back togather
+      #now put target , numerical and categorical variables back together
       data = pd.concat((self.data_nonc,data_dummies),axis=1)
       del(self.data_nonc)
       return(data)
@@ -1164,7 +1170,7 @@ class Dummify(BaseEstimator,TransformerMixin):
       array = self.ohe.transform(data.drop(self.target,axis=1,errors='ignore').select_dtypes(include=('object'))).toarray()
       data_dummies = pd.DataFrame(array,columns= self.data_columns)
       data_dummies.index = self.data_nonc.index
-      # now put target , numerical and categorical variables back togather
+      # now put target , numerical and categorical variables back together
       data = pd.concat((self.target_column,self.data_nonc,data_dummies),axis=1)
       # remove unwanted attributes
       del(self.target_column,self.data_nonc)
@@ -1197,7 +1203,7 @@ class Outlier(BaseEstimator,TransformerMixin):
 
   def fit_transform(self,dataset,y=None):
 
-    # dummify if there are any obects 
+    # dummify if there are any objects 
     if len(dataset.select_dtypes(include='object').columns)>0:
       self.dummy = Dummify(self.target)
       data = self.dummy.fit_transform(dataset)
@@ -1272,7 +1278,7 @@ class Cluster_Entire_Data(BaseEstimator,TransformerMixin):
     - Highly recommended to run the DataTypes_Auto_infer class first
       Args:
           target_variable: target variable (integer or numerical only)
-          check_clusters_upto: to determine optimum number of kmeans clusters, set the uppler limit of clusters
+          check_clusters_upto: to determine optimum number of kmeans clusters, set the upper limit of clusters 
   '''
 
   def __init__(self, target_variable, check_clusters_upto=20, random_state=42):
@@ -1296,9 +1302,10 @@ class Cluster_Entire_Data(BaseEstimator,TransformerMixin):
     # # # now make PLS 
     # # data_t1 = self.pls.transform(data_t1)
     # # data_t1 = self.pca.transform(data_t1)
-    # # now predict with the clustes
+    # # now predict with the clusters
     predict =pd.DataFrame(self.k_object.predict(data_t1),index=data.index)
     data['data_cluster'] = predict
+    self.test_data_clusters = predict
     data['data_cluster'] = data['data_cluster'].astype('object')
     return(data)
 
@@ -1319,7 +1326,7 @@ class Cluster_Entire_Data(BaseEstimator,TransformerMixin):
     # self.pca = PCA(n_components=len(data_t1.columns)-1)
     # data_t1 = self.pca.fit_transform(data_t1.drop(self.target,axis=1))
     
-    # we are goign to make a place holder , for 2 to 20 clusters
+    # we are going to make a place holder , for 2 to 20 clusters
     self.ph = pd.DataFrame(np.arange(2,self.check_clusters,1), columns= ['clusters']) 
     self.ph['Silhouette'] = float(0)
     self.ph['calinski'] = float(0)
@@ -1330,7 +1337,7 @@ class Cluster_Entire_Data(BaseEstimator,TransformerMixin):
         self.k_object =  cluster.KMeans(n_clusters= c,init='k-means++',precompute_distances='auto',n_init=10,random_state=self.random_state)
         self.k_object.fit(data_t1)
         self.ph.iloc[k,1] = metrics.silhouette_score(data_t1,self.k_object.labels_)
-        self.ph.iloc[k,2] = metrics.calinski_harabaz_score(data_t1,self.k_object.labels_)
+        self.ph.iloc[k,2] = metrics.calinski_harabasz_score(data_t1,self.k_object.labels_)
     
     # now standardize the scores and make a total column
     m = MinMaxScaler((-1,1))
@@ -1347,24 +1354,25 @@ class Cluster_Entire_Data(BaseEstimator,TransformerMixin):
     # now do fit predict
     predict =pd.DataFrame(self.k_object.fit_predict(data_t1),index=data.index)
     data['data_cluster'] = predict
+    self.train_data_clusters = predict
     data['data_cluster'] = data['data_cluster'].astype('object')
 
     return(data)
-#__________________________________________________________________________________________________________________________________________
-# Clustering catagorical data
+#_____________________________________________________________________________________________________________________
+# Clustering categorical data
 class Reduce_Cardinality_with_Clustering(BaseEstimator,TransformerMixin):
   '''
-    - Reduces the level of catagorical column / cardinality through clustering 
+    - Reduces the level of categorical column / cardinality through clustering 
     - Highly recommended to run the DataTypes_Auto_infer class first
       Args:
           target_variable: target variable (integer or numerical only)
-          catagorical_feature: list of features on which clustering  is to be applied / cardinality to be reduced
-          check_clusters_upto: to determine optimum number of kmeans clusters, set the uppler limit of clusters
+          categorical_feature: list of features on which clustering  is to be applied / cardinality to be reduced
+          check_clusters_upto: to determine optimum number of kmeans clusters, set the upper limit of clusters
   '''
 
-  def __init__(self, target_variable, catagorical_feature=[], check_clusters_upto=30,random_state=42):
+  def __init__(self, target_variable, categorical_feature=[], check_clusters_upto=30,random_state=42):
     self.target = target_variable
-    self.feature = catagorical_feature
+    self.feature = categorical_feature
     self.check_clusters = check_clusters_upto + 1
     self.random= random_state
     
@@ -1375,7 +1383,7 @@ class Reduce_Cardinality_with_Clustering(BaseEstimator,TransformerMixin):
 
   def transform(self,dataset,y=None):
     data= dataset.copy()
-    # we already know which leval belongs to whihc cluster , so all w need is to replace levels with clusters we already have from training data set
+    # we already know which level belongs to which cluster , so all w need is to replace levels with clusters we already have from training data set
     for i,z in zip(self.feature,self.ph_data):
       data[i] = data[i].replace(list(z['levels']),z['cluster'])
     
@@ -1395,7 +1403,7 @@ class Reduce_Cardinality_with_Clustering(BaseEstimator,TransformerMixin):
     self.pls = PLSRegression(n_components=2) # since we are only using two componenets to group #PLSRegression(n_components=len(data_t1.columns)-1)
     data_pls = self.pls.fit_transform(data_t.drop(self.target,axis=1),data_t[self.target])[0]
 
-    # # now we will take one component and then we calculate mean, median, min, max and sd of that one component grouped by the catagorical levels
+    # # now we will take one component and then we calculate mean, median, min, max and sd of that one component grouped by the categorical levels
     self.ph_data = []
     self.ph_clusters = []
     for i in self.feature:
@@ -1409,7 +1417,7 @@ class Reduce_Cardinality_with_Clustering(BaseEstimator,TransformerMixin):
       # now number of clusters cant be more than the number of samples in aggregated data , so
       self.check_clusters = min (self.check_clusters,len(data_t1)) 
 
-      # # we are goign to make a place holder , for 2 to 20 clusters
+      # # we are going to make a place holder , for 2 to 20 clusters
       self.ph = pd.DataFrame(np.arange(2,self.check_clusters,1), columns= ['clusters']) 
       self.ph['Silhouette'] = float(0)
       self.ph['calinski'] = float(0)
@@ -1430,7 +1438,7 @@ class Reduce_Cardinality_with_Clustering(BaseEstimator,TransformerMixin):
       # sort it by total column and take the first row column 0 , that would represent the optimal clusters
       try:
         self.clusters = int(self.ph[self.ph['total'] == max(self.ph['total'])]['clusters'])
-      except: # in case there isnt a decisive measure , take calinski as yeard stick
+      except: # in case there isn't a decisive measure , take calinski as yard stick
         self.clusters= int(self.ph[self.ph['calinski'] == max(self.ph['calinski'])]['clusters'])
       self.ph_clusters.append(self.ph)
       # Now make the final cluster object
@@ -1440,7 +1448,7 @@ class Reduce_Cardinality_with_Clustering(BaseEstimator,TransformerMixin):
       # put it back with the group by aggregate columns
       data_t1['cluster'] = predict
       data_t1['cluster'] = data_t1['cluster'] .apply(str)
-      # now we dont need all the columns, only the cluster column is required along with the index (index also has a name , we  groupy as "levels")
+      # now we don't need all the columns, only the cluster column is required along with the index (index also has a name , we  group as "levels")
       data_t1 = data_t1[['cluster']]
       # now convert index ot the column
       data_t1.reset_index(level=0, inplace=True) # this table now only contains every level and its cluster
@@ -1452,16 +1460,16 @@ class Reduce_Cardinality_with_Clustering(BaseEstimator,TransformerMixin):
     return(data)
 
 #____________________________________________________________________________________________________________________________________________
-# Clustering catagorical data
+# Clustering categorical data
 class Reduce_Cardinality_with_Counts(BaseEstimator,TransformerMixin):
   '''
-    - Reduces the level of catagorical column by replacing levels with their count & converting objects into float
+    - Reduces the level of categorical column by replacing levels with their count & converting objects into float
       Args:
-          catagorical_feature: list of features on which clustering is to be applied
+          categorical_feature: list of features on which clustering is to be applied
   '''
 
-  def __init__(self, catagorical_feature=[]):
-    self.feature = catagorical_feature    
+  def __init__(self, categorical_feature=[]):
+    self.feature = categorical_feature    
 
   def fit(self,data,y=None):
     return(None)
@@ -1522,7 +1530,7 @@ class Make_NonLiner_Features(BaseEstimator,TransformerMixin):
     data = dataset.copy()
     
     self.numeric_columns = data.drop(self.target,axis=1,errors='ignore').select_dtypes(include="float64").columns
-    if self.Polynomial_degree >= 2: # dont run anything if powr is les than 2
+    if self.Polynomial_degree >= 2: # don't run anything if power is les than 2
       #self.numeric_columns = data.drop(self.target,axis=1,errors='ignore').select_dtypes(include="float64").columns
       # start taking powers
       for i in range(2,self.Polynomial_degree+1):
@@ -1585,7 +1593,7 @@ class Make_NonLiner_Features(BaseEstimator,TransformerMixin):
     data = dataset.copy()
     
     self.numeric_columns = data.drop(self.target,axis=1,errors='ignore').select_dtypes(include="float64").columns
-    if self.Polynomial_degree >= 2: # dont run anything if powr is les than 2
+    if self.Polynomial_degree >= 2: # don't run anything if power is les than 2
       #self.numeric_columns = data.drop(self.target,axis=1,errors='ignore').select_dtypes(include="float64").columns
       # start taking powers
       for i in range(2,self.Polynomial_degree+1):
@@ -1667,7 +1675,7 @@ class Advanced_Feature_Selection_Classic(BaseEstimator,TransformerMixin):
     return(None)
 
   def transform(self,dataset,y=None):
-    # return the data with onlys specific columns
+    # return the data with only specific columns
     data= dataset.copy()
     # self.selected_columns.remove(self.target)
     return(data[self.selected_columns_test])
@@ -1752,7 +1760,7 @@ class Fix_multicollinearity(BaseEstimator,TransformerMixin):
               the option to favour one measur to another. e.g. if value is .6 , during feature selection tug of war, correlation target measure will have a higher say.
               A value of .5 means both measure have equal say 
   """
-  # mamke a constructer
+  # make a constructor
   
   def __init__ (self,threshold,target_variable,correlation_with_target_threshold= 0.0,correlation_with_target_preference=1.0):
       self.threshold = threshold
@@ -1827,31 +1835,30 @@ class Fix_multicollinearity(BaseEstimator,TransformerMixin):
     # we need to now eleminate all the pairs that are actually duplicate e.g cor(x,y) = cor(y,x) , they are the same , we need to find these and drop them
     self.merge['all_columns'] = self.merge['column'] + self.merge['variable']
 
-    # this puts all the coresponding pairs of features togather , so that we can only take one, since they are just the duplicates
+    # this puts all the coresponding pairs of features together , so that we can only take one, since they are just the duplicates
     self.merge['all_columns'] = [sorted(i) for i in self.merge['all_columns'] ]
 
     # now sort by new column
     self.merge = self.merge.sort_values(by='all_columns')
 
-    # take every second colums
+    # take every second columns
     self.merge = self.merge.iloc[::2, :]
 
     # make a ranking column to eliminate features
     self.merge['rank_x'] = round(self.multicol_weight*(self.merge['avg_cor_y']- self.merge['avg_cor_x']) +  self.target_corr_weight*(self.merge['target_variable_x'] - self.merge['target_variable_y']),6) # round it to 6 digits
     self.merge1 = self.merge # delete here
-    ## Now there will be rows where the rank will be exactly zero, these is where the value (corelartion between features) is exactly one ( like price and price^2)
+    ## Now there will be rows where the rank will be exactly zero, these is where the value (correlation between features) is exactly one ( like price and price^2)
     ## so in that case , we can simply pick one of the variable
     # but since , features can be in either column, we will drop one column (say 'column') , only if the feature is not in the second column (in variable column)
     # both equations below will return the list of columns to drop from here 
     # this is how it goes
-
     ## For the portion where correlation is exactly one !
     self.one = self.merge[self.merge['rank_x']==0]
 
     # this portion is complicated 
     # table one have all the paired variable having corelation of 1
     # in a nutshell, we can take any column (one side of pair) and delete the other columns (other side of the pair)
-    # however one varibale can appear more than once on any of the sides , so we will run for loop to find all pairs...
+    # however one variable can appear more than once on any of the sides , so we will run for loop to find all pairs...
     # here it goes
     # take a list of all (but unique ) variables that have correlation 1 for eachother, we will make two copies
     self.u_all = list(pd.unique(pd.concat((self.one['column'],self.one['variable']),axis=0)))
@@ -1860,7 +1867,7 @@ class Fix_multicollinearity(BaseEstimator,TransformerMixin):
     self.u_column  = pd.unique(self.one['column'])
     
     # now we are going to start picking each variable from one column (one side of the pair) , check it against the other column (other side of the pair)
-    # to pull all coresponding / paired variables  , and delete thoes newly varibale names from all unique list
+    # to pull all coresponding / paired variables  , and delete those newly variable names from all unique list
     
     for i in self.u_column:
       #print(i)
@@ -1870,7 +1877,7 @@ class Fix_multicollinearity(BaseEstimator,TransformerMixin):
           #print("_"+q)
           self.u_all.remove(q)
 
-    # now the unique column contains the varibales that should remain, so in order to get the variables that should be deleted :
+    # now the unique column contains the variables that should remain, so in order to get the variables that should be deleted :
     self.to_drop =(list(set(self.u_all_1)-set(self.u_all)))
 
 
@@ -1895,7 +1902,7 @@ class Fix_multicollinearity(BaseEstimator,TransformerMixin):
     
     self.to_drop = self.to_drop
 
-    # now we want to keep only the columns that have more correlation with traget by a threshold
+    # now we want to keep only the columns that have more correlation with target by a threshold
     self.to_drop_taret_correlation=[] 
     if self.correlation_with_target_threshold != 0.0:
       corr = pd.DataFrame(np.corrcoef(data.drop(self.to_drop,axis=1).T),columns= data.drop(self.to_drop,axis=1).columns,index=data.drop(self.to_drop,axis=1).columns)
@@ -1976,7 +1983,7 @@ class Remove_100(BaseEstimator,TransformerMixin):
     melt = corr_matrix.melt(id_vars= ['column'],value_vars=cols).sort_values(by='value',ascending=False)#.dropna()
     melt['value'] = round(melt['value'],2) # round it to two digits
 
-    # now pick variables where value is one and 'column' != variabe ( both columns are not same)
+    # now pick variables where value is one and 'column' != variable ( both columns are not same)
     c1 = melt['value'] == 1.00
     c2 = melt['column'] != melt['variable']
     melt = melt[((c1 == True) & (c2 == True)) ]
@@ -1984,13 +1991,13 @@ class Remove_100(BaseEstimator,TransformerMixin):
     # we need to now eleminate all the pairs that are actually duplicate e.g cor(x,y) = cor(y,x) , they are the same , we need to find these and drop them
     melt['all_columns'] = melt['column'] + melt['variable']
 
-    # this puts all the coresponding pairs of features togather , so that we can only take one, since they are just the duplicates
+    # this puts all the coresponding pairs of features together , so that we can only take one, since they are just the duplicates
     melt['all_columns'] = [sorted(i) for i in melt['all_columns'] ]
 
     # # now sort by new column
     melt = melt.sort_values(by='all_columns')
 
-    # # take every second colums
+    # # take every second columns
     melt = melt.iloc[::2, :]
 
     # lets keep the columns on the left hand side of the table
@@ -1999,7 +2006,7 @@ class Remove_100(BaseEstimator,TransformerMixin):
     return(data.drop(self.columns_to_drop,axis=1))
 
 #_______________________________________________________________________________________________________________________________________________________________________________________________
-# custome DFS 
+# custom DFS 
 class DFS_Classic(BaseEstimator,TransformerMixin):
   '''
     - Automated feature interactions using multiplication, division , addition & substraction
@@ -2026,13 +2033,13 @@ class DFS_Classic(BaseEstimator,TransformerMixin):
 
     data= dataset.copy()
      # for multiplication:
-    # we need bot catagorical and numerical columns
+    # we need bot categorical and numerical columns
 
     if 'multiply' in self.interactions:
       
       data_multiply = pd.concat([data.drop(self.target,axis=1,errors='ignore').mul(col[1], axis="index") for col in data.drop(self.target,axis=1,errors='ignore').iteritems()], axis=1)
       data_multiply.columns = ["_multiply_".join([i, j]) for j in data.drop(self.target,axis=1,errors='ignore').columns for i in data.drop(self.target,axis=1,errors='ignore').columns]
-      # we dont need to apply rest of conditions
+      # we don't need to apply rest of conditions
       data_multiply.index = data.index 
     else:
       data_multiply= pd.DataFrame()
@@ -2081,7 +2088,7 @@ class DFS_Classic(BaseEstimator,TransformerMixin):
 
     data= dataset.copy()
 
-    # we need to seperate numerical and ont hot encoded columns
+    # we need to separate numerical and ont hot encoded columns
     # self.ohe_columns = [i if ((len(data[i].unique())==2) & (data[i].unique()[0] in [0,1]) & (data[i].unique()[1] in [0,1]) ) else None for i in data.drop(self.target,axis=1).columns]
     self.ohe_columns =[i for i in data.columns if len(data[i].unique()) == 2 and data[i].unique()[0] in [0,1] and data[i].unique()[1] in [0,1]]
     # self.ohe_columns = [i for i in self.ohe_columns if i is not None]
@@ -2089,15 +2096,15 @@ class DFS_Classic(BaseEstimator,TransformerMixin):
     target_variable = data[[self.target]]
 
     # for multiplication:
-    # we need bot catagorical and numerical columns
+    # we need bot categorical and numerical columns
 
     if 'multiply' in self.interactions:
       data_multiply = pd.concat([data.drop(self.target,axis=1).mul(col[1], axis="index") for col in data.drop(self.target,axis=1).iteritems()], axis=1)
       data_multiply.columns = ["_multiply_".join([i, j]) for j in data.drop(self.target,axis=1).columns for i in data.drop(self.target,axis=1).columns]
-      # we dont need columns that are self interacted
+      # we don't need columns that are self interacted
       col = ["_multiply_".join([i, j]) for j in data.drop(self.target,axis=1).columns for i in data.drop(self.target,axis=1).columns if i!=j]
       data_multiply = data_multiply[col]
-      # we dont need columns where the sum of the total column is null (to catagorical variables never happening togather)
+      # we don't need columns where the sum of the total column is null (to categorical variables never happening together)
       col1 = [i for i in data_multiply.columns if np.nansum(data_multiply[i])!=0 ]
       data_multiply = data_multiply[col1]
       data_multiply.index = data.index
@@ -2108,13 +2115,13 @@ class DFS_Classic(BaseEstimator,TransformerMixin):
     if 'divide' in self.interactions:
       data_divide = pd.concat([data.drop(self.target,axis=1)[self.numeric_columns].div(col[1], axis="index") for col in data.drop(self.target,axis=1)[self.numeric_columns].iteritems()], axis=1)
       data_divide.columns = ["_divide_".join([i, j]) for j in data.drop(self.target,axis=1)[self.numeric_columns].columns for i in data.drop(self.target,axis=1)[self.numeric_columns].columns]
-      # we dont need columns that are self interacted
+      # we don't need columns that are self interacted
       col = ["_divide_".join([i, j]) for j in data.drop(self.target,axis=1)[self.numeric_columns].columns for i in data.drop(self.target,axis=1)[self.numeric_columns].columns if i!=j]
       data_divide = data_divide[col]
-      # we dont need columns where the sum of the total column is null (to catagorical variables never happening togather)
+      # we don't need columns where the sum of the total column is null (to categorical variables never happening together)
       col1 = [i for i in data_divide.columns if np.nansum(data_divide[i])!=0 ]
       data_divide = data_divide[col1]
-      # additionally we need to fill anll the possible NaNs
+      # additionally we need to fill all the possible NaNs
       data_divide.replace([np.inf,-np.inf],0,inplace=True)
       data_divide.fillna(0,inplace=True)
       data_divide.index = data.index
@@ -2125,10 +2132,10 @@ class DFS_Classic(BaseEstimator,TransformerMixin):
     if 'add' in self.interactions:
       data_add = pd.concat([data.drop(self.target,axis=1)[self.numeric_columns].add(col[1], axis="index") for col in data.drop(self.target,axis=1)[self.numeric_columns].iteritems()], axis=1)
       data_add.columns = ["_add_".join([i, j]) for j in data.drop(self.target,axis=1)[self.numeric_columns].columns for i in data.drop(self.target,axis=1)[self.numeric_columns].columns]
-      # we dont need columns that are self interacted
+      # we don't need columns that are self interacted
       col = ["_add_".join([i, j]) for j in data.drop(self.target,axis=1)[self.numeric_columns].columns for i in data.drop(self.target,axis=1)[self.numeric_columns].columns if i!=j]
       data_add = data_add[col]
-      # we dont need columns where the sum of the total column is null (to catagorical variables never happening togather)
+      # we don't need columns where the sum of the total column is null (to categorical variables never happening together)
       col1 = [i for i in data_add.columns if np.nansum(data_add[i])!=0 ]
       data_add = data_add[col1]
       data_add.index = data.index
@@ -2139,10 +2146,10 @@ class DFS_Classic(BaseEstimator,TransformerMixin):
     if 'subtract' in self.interactions:
       data_substract = pd.concat([data.drop(self.target,axis=1)[self.numeric_columns].sub(col[1], axis="index") for col in data.drop(self.target,axis=1)[self.numeric_columns].iteritems()], axis=1)
       data_substract.columns = ["_subtract_".join([i, j]) for j in data.drop(self.target,axis=1)[self.numeric_columns].columns for i in data.drop(self.target,axis=1)[self.numeric_columns].columns]
-      # we dont need columns that are self interacted
+      # we don't need columns that are self interacted
       col = ["_subtract_".join([i, j]) for j in data.drop(self.target,axis=1)[self.numeric_columns].columns for i in data.drop(self.target,axis=1)[self.numeric_columns].columns if i!=j]
       data_substract = data_substract[col]
-      # we dont need columns where the sum of the total column is null (to catagorical variables never happening togather)
+      # we don't need columns where the sum of the total column is null (to categorical variables never happening together)
       col1 = [i for i in data_substract.columns if np.nansum(data_substract[i])!=0 ]
       data_substract = data_substract[col1]
       data_substract.index = data.index
@@ -2160,7 +2167,7 @@ class DFS_Classic(BaseEstimator,TransformerMixin):
     self.dummy_all = dummy_all
 
   
-    # apply advanced feature selectio 
+    # apply advanced feature selection 
     afs = Advanced_Feature_Selection_Classic(target=self.target,ml_usecase=self.ml_usecase,top_features_to_pick=self.top_n_correlated , random_state=self.random_state, subclass=self.subclass)
     dummy_all_t = afs.fit_transform(dummy_all) 
     
@@ -2276,7 +2283,6 @@ class Reduce_Dimensions_For_Supervised_Path(BaseEstimator,TransformerMixin):
     else:
       return(dataset)
 
-
 #___________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________
 # preprocess_all_in_one
 def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =None,categorical_features=[],numerical_features=[],time_features=[],features_todrop=[],display_types=True,
@@ -2286,7 +2292,7 @@ def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =No
                                 apply_untrained_levels_treatment= False,untrained_levels_treatment_method = 'least frequent',
                                 apply_ordinal_encoding = False, ordinal_columns_and_categories= {},
                                 apply_cardinality_reduction=False, cardinal_method = 'cluster', cardinal_features=[],
-                                apply_binning=False, features_to_binn =[],
+                                apply_binning=False, features_to_bin =[],
                                 apply_grouping= False , group_name=[] , features_to_group_ListofList=[[]],
                                 apply_polynomial_trigonometry_features = False, max_polynomial=2,trigonometry_calculations=['sin','cos','tan'], top_poly_trig_features_to_select_percentage=.20,
                                 scale_data= False, scaling_method='zscore',
@@ -2299,34 +2305,195 @@ def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =No
                                 apply_feature_interactions= False, feature_interactions_to_apply=['multiply','divide','add','subtract'],feature_interactions_top_features_to_select_percentage=.01,
                                 cluster_entire_data= False, range_of_clusters_to_try=20, 
                                 apply_pca = False , pca_method = 'pca_liner',pca_variance_retained_or_number_of_components =.99 ,
-                                random_state=42
+                                random_state=42,
+                                save_pipeline = False,
+                                save_Name= "Preprocess_pipeline.sav",
+                                save_path= ""
                                 
 
                                ):
   
   '''
-    Follwoing preprocess steps are taken:
+  
+  
+   ===================INTRODUCTION===================
+   
+    This path deals with SUPERVISED problems only (where a target variable is available).
+    Following data preprocessing steps are taken:
+    
       - 1) Auto infer data types 
       - 2) Impute (simple or with surrogate columns)
       - 3) Ordinal Encoder
       - 4) Drop categorical variables that have zero variance or near zero variance
-      - 5) Club categorical variables levels togather as a new level (other_infrequent) that are rare / at the bottom 5% of the variable distribution
+      - 5) Club categorical variables levels together as a new level (other_infrequent)
+           that are rare / at the bottom 5% of the variable distribution
       - 6) Club unseen levels in test dataset with most/least frequent levels in train dataset 
       - 7) Reduce high cardinality in categorical features using clustering or counts
       - 8) Generate sub features from time feature such as 'month','weekday',is_month_end','is_month_start' & 'hour'
       - 9) Group features by calculating min, max, mean, median & sd of similar features
       -10) Make nonliner features (polynomial, sin , cos & tan)
-      -11) Scales & Power Transform (zscore,minmax,yeo-johnson,quantile,maxabs,robust) , including option to transform target variable
-      -12) Apply binning to continious variable when numeric features are provided as a list 
+      -11) Scales & Power Transform (zscore,minmax,yeo-johnson,quantile,maxabs,robust),
+           including option to transform target variable
+      -12) Apply binning to continuous variable when numeric features are provided as a list 
       -13) Detect & remove outliers using isolation forest, knn and PCA
       -14) Apply clusters to segment entire data
       -15) One Hot / Dummy encoding
-      -16) Remove special characters from column names such as commas, square brackets etc to make it competible with jason dependednt models
-      -17) Feature Selection throuh Random Forest , LightGBM and Pearson Correlation
+      -16) Remove special characters from column names such as commas, 
+           square brackets etc to make it compatible with jason dependent models
+      -17) Feature Selection through Random Forest , LightGBM and Pearson Correlation
       -18) Fix multicollinearity
       -19) Feature Interaction (DFS) , multiply , divided , add and substract features
       -20) Apply diamension reduction techniques such as pca_liner, pca_kernal, incremental, tsne 
-          - except for pca_liner, all other method only takes number of component (as integer) i.e no variance explaination metohd available  
+           except for pca_liner, all other method only takes number of component (as integer)
+           i.e no variance explanation method available  
+
+     ==================================================
+    
+    Args:
+    
+      "Takes a pandas df and returns pandas df/dfs
+  
+    - train_data : pandas data frame, target variable included
+    -------------------------------------------
+    - target_variable: str , name of target variable in the data frame
+    -------------------------------------------
+    - ml_usecase: machine learning use case, str 'classification' or 'regression' , 
+      by default  it is None , which is auto detection 
+    -------------------------------------------
+    - test_data: pandas data frame, if given two preprocessed data frames will be returned
+    -------------------------------------------
+    - categorical_features: list of str , names of categorical columns to over ride 
+      default data type detection
+    -------------------------------------------
+    - numerical_features: list of str , names of numerical columns to over ride 
+      default data type detection
+    -------------------------------------------
+    - time_features: list of str , names of date columns to over ride default data type detection
+    -------------------------------------------
+    - features_todrop: list of str, names of columns to avoid while preprocessing 
+    -------------------------------------------
+    - display_types: Boolen , display auto detected data types
+    -------------------------------------------
+    - imputation_type: str , 'simple imputer' or 'surrogate imputer' imputer. 
+      Surrogate imputer will open a new column everytime an imputation is made
+    -------------------------------------------
+    - numeric_imputation_strategy: str, 'mean' or 'median'
+    -------------------------------------------
+    - categorical_imputation_strategy: str , 'not_available' or 'most frequent'. 
+      'not_available' appears as a new level, 'most frequent' is the count
+    -------------------------------------------
+    - apply_zero_nearZero_variance: boolen , removes features that have no or low explainable variance
+    -------------------------------------------
+    - club_rare_levels: boolen , Merge levels in categorical features with more frequent levels
+      if they appear less than a specified threshold count
+    -------------------------------------------
+    - rara_level_threshold_percentage: percentage, threshold for "club_rare_levels" option
+    -------------------------------------------
+    - apply_untrained_levels_treatment: boolen , treat new/unseen levels in the 
+      test dataset's categorical feature
+    ------------------------------------------- 
+    - untrained_levels_treatment_method: str ,'least frequent' or 'most frequent' 
+      for  "apply_untrained_levels_treatment" option
+    -------------------------------------------
+    - apply_ordinal_encoding: boolen , apply ordinal encoding
+    -------------------------------------------
+    - ordinal_columns_and_categories: dict, column name is key and values as list of ordered level e.g.
+      if column 'color' and 'rank' are the features to encode then:
+      {'color': ['red','blue','green'], 'rank': ['low','medium','high'] }
+    -------------------------------------------
+    - apply_cardinality_reduction: boolen,  Reduce the number of levels in categorical 
+      columns using kmeans clusters or counts
+    ------------------------------------------- 
+    - cardinal_method: str , 'cluster' or 'count' , method for  "apply_cardinality_reduction" option
+    -------------------------------------------
+    - cardinal_features: list of str , column names for "apply_cardinality_reduction" option
+    -------------------------------------------
+    - apply_binning: boolen , Bin numerical features with automatic number of bins through 'Sturges' method
+    -------------------------------------------
+    - features_to_bin: list of str, column names for "apply_binning" option
+    -------------------------------------------
+    - apply_grouping: boolen , group & aggregate sementic numerical features and 
+      create new features such as Min, Max, Mean, Median, Mode & Std (e.g customer payments)
+    -------------------------------------------
+    - group_name: list , group/aggregation name for "apply_grouping" option,
+       e.g. ['group_of_payments','group_of_points_earned']
+    -------------------------------------------
+    - features_to_group_ListofList: list of list , name of columns names to be 
+      grouped together for "apply_grouping" option e.g. 
+      [['payment_jan','payment_feb'],['points_jan','points_feb']]
+    -------------------------------------------
+    - apply_polynomial_trigonometry_features: boolen, generate polynomial 
+      & trigonometry features from numeric columns
+    -------------------------------------------
+    - max_polynomial: int, polynomial features to the number of power ,
+       2 is default , for "apply_polynomial_trigonometry_features" option
+    -------------------------------------------
+    - trigonometry_calculations: list of str, trignomater features , 'sin','cos' and 'tan',
+       for "apply_polynomial_trigonometry_features" option
+    -------------------------------------------
+    - top_poly_trig_features_to_select_percentage= percentage, pick n% top importnat features
+      from newly created features, for "apply_polynomial_trigonometry_features" option
+    -------------------------------------------
+    - scale_data: boolen, scale numerical features 
+    -------------------------------------------
+    - scaling_method: str, 'zscore','minmaxm','robust' or 'maxabs' , for "scale_data" option
+    -------------------------------------------
+    - Power_transform_data: boolen , normalize numeric variables  
+    -------------------------------------------
+    - Power_transform_method: str, 'quantile' or 'yj' , for "Power_transform_data" option
+    -------------------------------------------
+    - target_transformation: boolen, normalize target variable (for regression problem)
+    -------------------------------------------
+    - target_transformation_method: str, BoxCox 'bc' or yeo-johnson 'yj' 
+      for "target_transformation" option
+    -------------------------------------------
+    - remove_outliers: boolen, remove outlier from the training data 
+    -------------------------------------------
+    - outlier_contamination_percentage: percentage, contamination % for "remove_outliers" option
+    -------------------------------------------
+    - outlier_methods: list of str,  method to use for calculating outlier , ['pca','iso','knn'],
+     (voting, if used more than one) , for "remove_outliers" option
+    -------------------------------------------
+    - apply_feature_selection: Retain important features using Random Forest, LightGBM & Correlation 
+    -------------------------------------------
+    - feature_selection_top_features_percentage: percentage, top n% features to retain
+      for "apply_feature_selection" option
+    -------------------------------------------
+    - remove_multicollinearity: boolen, remove features with high correlation 
+    -------------------------------------------
+    - maximum_correlation_between_features: percentage, maximum correlation features can have
+      for "remove_multicollinearity" option
+    -------------------------------------------
+    - remove_perfect_collinearity: boolen, remove features that have perfect corrlation between them (of 100%)
+    -------------------------------------------
+    - apply_feature_interactions: boolen, create new feature through interactions 
+    -------------------------------------------
+    - feature_interactions_to_apply: list of str , e.g. ['multiply','divide','add','subtract']
+      for "apply_feature_interactions" option
+    -------------------------------------------
+    - feature_interactions_top_features_to_select_percentage: percentage, top n% features to retain
+      for "apply_feature_interactions" option
+    -------------------------------------------
+    - cluster_entire_data: boolen, generate clusters (kmeans) on entire data set with
+      automatic number of clusters using 'calinski & 'Silhouette'  scores
+    -------------------------------------------
+    - range_of_clusters_to_try: int, maximum number of cluster to try , for "cluster_entire_data" option
+    -------------------------------------------
+    - apply_pca: boolen, reduce dimensionality 
+    -------------------------------------------
+    - pca_method: str, 'pca_liner','pca_kernal','tsne','pls' or 'incremental'  
+    -------------------------------------------
+    - pca_variance_retained_or_number_of_components: percentage or int (for PCA Liner it's % , 
+      for all others it's Int) for "apply_pca" option
+    -------------------------------------------
+    - random_state: int, set randoom seed for all the calculations to produce similar results
+    -------------------------------------------
+    - save_pipeline: boolen, save the preprocess transform pipeline as pickle file 
+    -------------------------------------------
+    - save_Name= str , e.g. "Preprocess_pipeline.sav", for "save_pipeline" option
+    -------------------------------------------
+    - save_path= str, path to save e.g. "C:/Users/myname/Desktop/" , for  "save_pipeline" option
+  
   '''
   global c2, subcase
   # WE NEED TO AUTO INFER the ml use case
@@ -2359,7 +2526,7 @@ def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =No
   # for zero_near_zero
   if apply_zero_nearZero_variance == True:
     global znz
-    znz = Zroe_NearZero_Variance(target=target_variable)
+    znz = Zero_NearZero_Variance(target=target_variable)
   else:
     znz = Empty()
 
@@ -2367,36 +2534,36 @@ def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =No
   
   if club_rare_levels == True:
     global club_R_L
-    club_R_L = Catagorical_variables_With_Rare_levels(target=target_variable,threshold=rara_level_threshold_percentage)
+    club_R_L = Categorical_variables_With_Rare_levels(target=target_variable,threshold=rara_level_threshold_percentage)
   else:
     club_R_L= Empty()
 
   # untrained levels in test
   if apply_untrained_levels_treatment ==  True:
     global new_levels 
-    new_levels = New_Catagorical_Levels_in_TestData(target=target_variable,replacement_strategy=untrained_levels_treatment_method)
+    new_levels = New_Categorical_Levels_in_TestData(target=target_variable,replacement_strategy=untrained_levels_treatment_method)
   else:
     new_levels= Empty()
 
   # untrained levels in test(ordinal specific)
   if apply_untrained_levels_treatment ==  True:
     global new_levels1 
-    new_levels1 = New_Catagorical_Levels_in_TestData(target=target_variable,replacement_strategy=untrained_levels_treatment_method)
+    new_levels1 = New_Categorical_Levels_in_TestData(target=target_variable,replacement_strategy=untrained_levels_treatment_method)
   else:
     new_levels1= Empty()
  
   # cardinality:
   global cardinality
   if apply_cardinality_reduction==True and cardinal_method =='cluster':
-    cardinality = Reduce_Cardinality_with_Clustering(target_variable=target_variable, catagorical_feature=cardinal_features, check_clusters_upto=50,random_state=random_state)
+    cardinality = Reduce_Cardinality_with_Clustering(target_variable=target_variable, categorical_feature=cardinal_features, check_clusters_upto=50,random_state=random_state)
   elif apply_cardinality_reduction==True and cardinal_method =='count':
-    cardinality = Reduce_Cardinality_with_Counts(catagorical_feature=cardinal_features)
+    cardinality = Reduce_Cardinality_with_Counts(categorical_feature=cardinal_features)
   else:
     cardinality= Empty()
 
   # ordinal coding
   if apply_ordinal_encoding == True:
-    # we need to make sure that if the columns chosen by user have NA & imputer strategy is not_availablle then we add that to the category first
+    # we need to make sure that if the columns chosen by user have NA & imputer strategy is not_available then we add that to the category first
     for i in ordinal_columns_and_categories.keys():
       if sum(train_data[i].isna()) > 0:
         if categorical_imputation_strategy=='not_available':
@@ -2424,10 +2591,10 @@ def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =No
 
   # binning 
   if apply_binning == True:
-    global binn
-    binn = Binning(features_to_discretize=features_to_binn)
+    global bined
+    bined = Binning(features_to_discretize=features_to_bin)
   else:
-    binn = Empty()
+    bined = Empty()
 
   # scaling & power transform
   if scale_data == True:
@@ -2528,7 +2695,7 @@ def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =No
                  ('scaling',scaling),
                  ('P_transform',P_transform),
                  ('pt_target',pt_target),
-                 ('binn',binn),
+                 ('bined',bined),
                  ('rem_outliers',rem_outliers),
                  ('cluster_all',cluster_all),
                  ('dummy',dummy),
@@ -2540,10 +2707,25 @@ def Preprocess_Path_One(train_data,target_variable,ml_usecase=None,test_data =No
                  ('pca',pca)
                  ])
   
+  
   if test_data is not None:
-    return(pipe.fit_transform(train_data),pipe.transform(test_data))
+    tr = pipe.fit_transform(train_data)
+    tst =pipe.transform(test_data)
+     # save pipeline if required
+    if save_pipeline == True:
+      filename = str(save_path)+str(save_Name)
+      pickle.dump(pipe ,open(filename,'wb'))
+    # return
+    return(tr,tst)
+  
   else:
-    return(pipe.fit_transform(train_data))
+    tr = pipe.fit_transform(train_data)
+     # save pipeline if required
+    if save_pipeline == True:
+      filename = str(save_path)+str(save_Name)
+      pickle.dump(pipe ,open(filename,'wb'))
+    # return
+    return(tr)
 
 
 
@@ -2556,38 +2738,164 @@ def Preprocess_Path_Two(train_data,ml_usecase=None,test_data =None,categorical_f
                                 apply_untrained_levels_treatment= False,untrained_levels_treatment_method = 'least frequent',
                                 apply_cardinality_reduction=False, cardinal_method = 'cluster', cardinal_features=[],
                                 apply_ordinal_encoding = False, ordinal_columns_and_categories= {}, 
-                                apply_binning=False, features_to_binn =[],
+                                apply_binning=False, features_to_bin =[],
                                 apply_grouping= False , group_name=[] , features_to_group_ListofList=[[]],
                                 scale_data= False, scaling_method='zscore',
                                 Power_transform_data = False, Power_transform_method ='quantile',
                                 remove_outliers = False, outlier_contamination_percentage= 0.01,outlier_methods=['pca','iso','knn'],
                                 remove_multicollinearity = False, maximum_correlation_between_features= 0.90,
-                                remove_perfect_collinearity= False,  
+                                remove_perfect_collinearity= False,
+                                cluster_entire_data= False, range_of_clusters_to_try=20,  
                                 apply_pca = False , pca_method = 'pca_liner',pca_variance_retained_or_number_of_components =.99 , 
-                                random_state=42
+                                random_state=42,
+                                save_pipeline = False,
+                                save_Name= "Preprocess_pipeline.sav",
+                                save_path= ""
 
                                ):
   
   '''
-    Follwoing preprocess steps are taken:
-      - THIS IS BUILt FOR UNSUPERVISED LEARNING
+  
+  
+    ===================INTRODUCTION===================
+    
+    This path deals with UNSUPERVISED problems only (where a target variable is NOT available).
+    Following data preprocessing steps are taken:
+    
       - 1) Auto infer data types 
       - 2) Impute (simple or with surrogate columns)
       - 3) Ordinal Encoder
       - 4) Drop categorical variables that have zero variance or near zero variance
-      - 5) Club categorical variables levels togather as a new level (other_infrequent) that are rare / at the bottom 5% of the variable distribution
+      - 5) Club categorical variables levels together as a new level (other_infrequent)
+           that are rare / at the bottom 5% of the variable distribution
       - 6) Club unseen levels in test dataset with most/least frequent levels in train dataset 
       - 7) Reduce high cardinality in categorical features using clustering or counts
       - 8) Generate sub features from time feature such as 'month','weekday',is_month_end','is_month_start' & 'hour'
       - 9) Group features by calculating min, max, mean, median & sd of similar features
-      -10) Scales & Power Transform (zscore,minmax,yeo-johnson,quantile,maxabs,robust) , including option to transform target variable
-      -11) Apply binning to continious variable when numeric features are provided as a list 
+      -10) Scales & Power Transform (zscore,minmax,yeo-johnson,quantile,maxabs,robust), 
+           including option to transform target variable
+      -11) Apply binning to continuous variable when numeric features are provided as a list 
       -12) Detect & remove outliers using isolation forest, knn and PCA
       -13) One Hot / Dummy encoding
-      -14) Remove special characters from column names such as commas, square brackets etc to make it competible with jason dependednt models
+      -14) Remove special characters from column names such as commas, square brackets etc to 
+           make it compatible with jason dependent models
       -15) Fix multicollinearity
       -16) Apply diamension reduction techniques such as pca_liner, pca_kernal, incremental, tsne 
-          - except for pca_liner, all other method only takes number of component (as integer) i.e no variance explaination metohd available 
+           except for pca_liner, all other method only takes number of component (as integer)
+           i.e no variance explanation method available 
+          
+    ==================================================
+  
+    Args:
+  
+    "Takes a pandas df and returns pandas df/dfs
+  
+    - train_data : pandas data frame, target variable included
+    -------------------------------------------
+    - test_data: pandas data frame, if given two preprocessed data frames will be returned
+    -------------------------------------------
+    - categorical_features: list of str , names of categorical columns to 
+      over ride default data type detection
+    -------------------------------------------
+    - numerical_features: list of str , names of numerical columns to over ride 
+      default data type detection
+    -------------------------------------------
+    - time_features: list of str , names of date columns to over ride default data type detection
+    -------------------------------------------
+    - features_todrop: list of str, names of columns to avoid while preprocessing 
+    -------------------------------------------
+    - display_types: Boolen , display auto detected data types
+    -------------------------------------------
+    - imputation_type: str , 'simple imputer' or 'surrogate imputer' imputer.
+      Surrogate imputer will open a new column everytime an imputation is made
+    -------------------------------------------
+    - numeric_imputation_strategy: str, 'mean' or 'median'
+    -------------------------------------------
+    - categorical_imputation_strategy: str , 'not_available' or 'most frequent'.
+      'not_available' appears as a new level, 'most frequent' is the count
+    -------------------------------------------
+    - apply_zero_nearZero_variance: boolen , removes features that have no or low explainable variance
+    -------------------------------------------
+    - club_rare_levels: boolen , Merge levels in categorical features with more
+      frequent levels  if they appear less than a specified threshold count
+    -------------------------------------------
+    - rara_level_threshold_percentage: percentage, threshold for "club_rare_levels" option
+    -------------------------------------------
+    - apply_untrained_levels_treatment: boolen , treat new/unseen levels in the
+       test dataset's categorical feature 
+    -------------------------------------------
+    - untrained_levels_treatment_method: str ,'least frequent' or 'most frequent'
+      for  "apply_untrained_levels_treatment" option
+    -------------------------------------------
+    - apply_ordinal_encoding: boolen , apply ordinal encoding
+    -------------------------------------------
+    - ordinal_columns_and_categories: dict, column name is key and values as list of ordered level
+      e.g. if column 'color' and 'rank' are the features to encode then:
+      {'color': ['red','blue','green'], 'rank': ['low','medium','high'] }
+    -------------------------------------------
+    - apply_cardinality_reduction: boolen,  Reduce the number of levels in
+      categorical columns using kmeans clusters or counts 
+    -------------------------------------------
+    - cardinal_method: str , 'cluster' or 'count' , method for  "apply_cardinality_reduction" option
+    -------------------------------------------
+    - cardinal_features: list of str , column names for "apply_cardinality_reduction" option
+    -------------------------------------------
+    - apply_binning: boolen , Bin numerical features with automatic number of bins through 'Sturges' method
+    -------------------------------------------
+    - features_to_bin: list of str, column names for "apply_binning" option
+    -------------------------------------------
+    - apply_grouping: boolen , group & aggregate sementic numerical features and create
+      new features such as Min, Max, Mean, Median, Mode & Std (e.g customer payments)
+    -------------------------------------------
+    - group_name: list , group/aggregation name for "apply_grouping" option ,
+      e.g. ['group_of_payments','group_of_points_earned']
+    -------------------------------------------
+    - features_to_group_ListofList: list of list , name of columns names to be 
+      grouped together for "apply_grouping" option e.g. 
+      [['payment_jan','payment_feb'],['points_jan','points_feb']]
+    -------------------------------------------
+    - scale_data: boolen, scale numerical features 
+    -------------------------------------------
+    - scaling_method: str, 'zscore','minmaxm','robust' or 'maxabs' , for "scale_data" option
+    -------------------------------------------
+    - Power_transform_data: boolen , normalize numeric variables  
+    -------------------------------------------
+    - Power_transform_method: str, 'quantile' or 'yj' , for "Power_transform_data" option
+    -------------------------------------------
+    - remove_outliers: boolen, remove outlier from the training data
+    ------------------------------------------- 
+    - outlier_contamination_percentage: percentage, contamination % for "remove_outliers" option
+    -------------------------------------------
+    - outlier_methods: list of str,  method to use for calculating outlier, ['pca','iso','knn'],
+      (voting, if used more than one) , for "remove_outliers" option
+    -------------------------------------------
+    - remove_multicollinearity: boolen, remove features with high correlation 
+    -------------------------------------------
+    - maximum_correlation_between_features: percentage, maximum correlation features can have ,
+      for "remove_multicollinearity" option
+    -------------------------------------------
+    - remove_perfect_collinearity: boolen, remove features that have perfect corrlation between them (of 100%)
+    -------------------------------------------
+    - cluster_entire_data: boolen, generate clusters (kmeans) on entire data set
+      with automatic number of clusters using 'calinski & 'Silhouette'  scores
+    -------------------------------------------
+    - range_of_clusters_to_try: int, maximum number of cluster to try , for "cluster_entire_data" option
+    -------------------------------------------
+    - apply_pca: boolen, reduce dimensionality 
+    -------------------------------------------
+    - pca_method: str, 'pca_liner','pca_kernal','tsne','pls' or 'incremental'  
+    -------------------------------------------
+    - pca_variance_retained_or_number_of_components: percentage or int (for PCA Liner it's % ,
+      for all others it's Int) for "apply_pca" option
+    -------------------------------------------
+    - random_state: int, set randoom seed for all the calculations to produce similar results
+    -------------------------------------------
+    - save_pipeline: boolen, save the preprocess transform pipeline as pickle file 
+    -------------------------------------------
+    - save_Name= str , e.g. "Preprocess_pipeline.sav", for "save_pipeline" option
+    -------------------------------------------
+    - save_path= str, path to save e.g. "C:/Users/myname/Desktop/" , for  "save_pipeline" option
+  
   '''
   
   # just make a dummy target variable
@@ -2619,44 +2927,44 @@ def Preprocess_Path_Two(train_data,ml_usecase=None,test_data =None,categorical_f
   # for zero_near_zero
   global znz
   if apply_zero_nearZero_variance == True:
-    znz = Zroe_NearZero_Variance(target=target_variable)
+    znz = Zero_NearZero_Variance(target=target_variable)
   else:
     znz = Empty()
  
   # for rare levels clubbing:
   global club_R_L
   if club_rare_levels == True:
-    club_R_L = Catagorical_variables_With_Rare_levels(target=target_variable,threshold=rara_level_threshold_percentage)
+    club_R_L = Categorical_variables_With_Rare_levels(target=target_variable,threshold=rara_level_threshold_percentage)
   else:
     club_R_L= Empty()
   
   # untrained levels in test
   if apply_untrained_levels_treatment ==  True:
     global new_levels 
-    new_levels = New_Catagorical_Levels_in_TestData(target=target_variable,replacement_strategy=untrained_levels_treatment_method)
+    new_levels = New_Categorical_Levels_in_TestData(target=target_variable,replacement_strategy=untrained_levels_treatment_method)
   else:
     new_levels= Empty()
 
   # untrained levels in test(ordinal specific)
   if apply_untrained_levels_treatment ==  True:
     global new_levels1 
-    new_levels1 = New_Catagorical_Levels_in_TestData(target=target_variable,replacement_strategy=untrained_levels_treatment_method)
+    new_levels1 = New_Categorical_Levels_in_TestData(target=target_variable,replacement_strategy=untrained_levels_treatment_method)
   else:
     new_levels1= Empty()
 
   # cardinality:
   global cardinality
   if apply_cardinality_reduction==True and cardinal_method =='cluster':
-    # cardinality = Reduce_Cardinality_with_Clustering(target_variable=target_variable, catagorical_feature=cardinal_features, check_clusters_upto=50,random_state=random_state)
+    # cardinality = Reduce_Cardinality_with_Clustering(target_variable=target_variable, categorical_feature=cardinal_features, check_clusters_upto=50,random_state=random_state)
     cardinality= Empty()
   elif apply_cardinality_reduction==True and cardinal_method =='count':
-    cardinality = Reduce_Cardinality_with_Counts(catagorical_feature=cardinal_features)
+    cardinality = Reduce_Cardinality_with_Counts(categorical_feature=cardinal_features)
   else:
     cardinality= Empty()
   
  # ordinal coding
   if apply_ordinal_encoding == True:
-    # we need to make sure that if the columns chosen by user have NA & imputer strategy is not_availablle then we add that to the categories first
+    # we need to make sure that if the columns chosen by user have NA & imputer strategy is not_available then we add that to the categories first
     for i in ordinal_columns_and_categories.keys():
       if sum(train_data[i].isna()) > 0:
         if categorical_imputation_strategy=='not_available':
@@ -2677,12 +2985,12 @@ def Preprocess_Path_Two(train_data,ml_usecase=None,test_data =None,categorical_f
   
 
   # binning 
-  global binn
+  global bined
 
   if apply_binning == True:
-    binn = Binning(features_to_discretize=features_to_binn)
+    bined = Binning(features_to_discretize=features_to_bin)
   else:
-    binn = Empty()
+    bined = Empty()
   
   # for scaling
   global scaling ,P_transform
@@ -2708,6 +3016,13 @@ def Preprocess_Path_Two(train_data,ml_usecase=None,test_data =None,categorical_f
     rem_outliers= Outlier(target=target_variable,contamination=outlier_contamination_percentage,random_state=random_state,methods=outlier_methods )
   else:
     rem_outliers = Empty()
+
+  # cluster all data:
+  if cluster_entire_data ==True:
+    global cluster_all
+    cluster_all = Cluster_Entire_Data(target_variable=target_variable,check_clusters_upto=range_of_clusters_to_try, random_state = random_state )
+  else:
+    cluster_all = Empty()
 
   # clean column names for special char
   clean_names =Clean_Colum_Names()
@@ -2748,19 +3063,45 @@ def Preprocess_Path_Two(train_data,ml_usecase=None,test_data =None,categorical_f
                  ('group',group),
                  ('scaling',scaling),
                  ('P_transform',P_transform),
-                 ('binn',binn),
+                 ('bined',bined),
                  ('fix_perfect',fix_perfect),
                  ('rem_outliers',rem_outliers),
+                 ('cluster_all',cluster_all),
                  ('dummy',dummy),
                  ('clean_names',clean_names),
                  ('fix_multi',fix_multi),
                  ('pca',pca)
                  ])
   
+  
   if test_data is not None:
-    train_t = pipe.fit_transform(train_data)
-    test_t = pipe.transform(test_data)
-    return(train_t.drop(target_variable,axis=1),test_t)
+    tr = pipe.fit_transform(train_data)
+    tst =pipe.transform(test_data)
+     # save pipeline if required
+    if save_pipeline == True:
+      filename = str(save_path)+str(save_Name)
+      pickle.dump(pipe ,open(filename,'wb'))
+    # make sure no dummy columns ar there
+    tr = tr.loc[:,~tr.columns.str.contains("dummy_tar")]
+    tst = tst.loc[:,~tst.columns.str.contains("dummy_tar")]
+    # remove dummy column from the original data frame
+    train_data.drop('dummy_target',axis=1,inplace=True)
+    # return
+    return(tr,tst)
+  
   else:
-    train_t = pipe.fit_transform(train_data)
-    return(train_t.drop(target_variable,axis=1))
+    tr = pipe.fit_transform(train_data)
+     # save pipeline if required
+    if save_pipeline == True:
+      filename = str(save_path)+str(save_Name)
+      pickle.dump(pipe ,open(filename,'wb'))
+    # return
+    # make sure no dummy columns ar there
+    tr = tr.loc[:,~tr.columns.str.contains("dummy_tar")]
+    # remove dummy column from the original data frame
+    train_data.drop('dummy_target',axis=1,inplace=True)
+    return(tr)
+  
+def load_pipeline(file_path):
+  loaded_pipeline = pickle.load(open(file_path,'rb'))
+  return(loaded_pipeline)
